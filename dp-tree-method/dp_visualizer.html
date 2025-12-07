@@ -232,6 +232,9 @@
         let currentStep = 0;
         let sortedNodes = [];
         let animationInterval = null;
+        let animationQueue = []; // Очередь шагов: {type: 'edge'/'node', data: ...}
+        let shownEdges = new Set(); // Показанные рёбра
+        let shownNodes = new Set(); // Показанные вершины
         
         function resizeCanvas() {
             const rect = canvas.getBoundingClientRect();
@@ -248,11 +251,43 @@
             return graph.nodes.slice().sort((a, b) => a.level - b.level);
         }
         
+        function buildAnimationQueue() {
+            animationQueue = [];
+            
+            // Для каждой вершины (кроме первой) добавляем:
+            // 1. Рёбра к ней
+            // 2. Саму вершину
+            for (let i = 1; i < sortedNodes.length; i++) {
+                const node = sortedNodes[i];
+                const incomingEdges = graph.edges.filter(e => e.to === node.id);
+                
+                // Добавляем рёбра к этой вершине
+                incomingEdges.forEach(edge => {
+                    animationQueue.push({
+                        type: 'edge',
+                        edgeKey: `${edge.from}->${edge.to}`
+                    });
+                });
+                
+                // Добавляем саму вершину
+                animationQueue.push({
+                    type: 'node',
+                    nodeId: node.id
+                });
+            }
+        }
+        
         function reset() {
             currentStep = 0;
             dpValues = {};
             sortedNodes = topologicalSort();
             dpValues[sortedNodes[0].id] = 1; // A = 1
+            
+            // Создаём очередь анимации
+            buildAnimationQueue();
+            shownEdges = new Set();
+            shownNodes = new Set();
+            shownNodes.add(sortedNodes[0].id); // Первая вершина сразу видна
             
             if (animationInterval) {
                 clearInterval(animationInterval);
@@ -265,13 +300,20 @@
         }
         
         function stepForward() {
-            if (currentStep >= sortedNodes.length - 1) return;
+            if (currentStep >= animationQueue.length) return;
             
+            const step = animationQueue[currentStep];
             currentStep++;
-            const node = sortedNodes[currentStep];
             
-            // Вычисляем ДП значение
-            calculateDP(node.id);
+            if (step.type === 'edge') {
+                // Показываем ребро
+                shownEdges.add(step.edgeKey);
+            } else if (step.type === 'node') {
+                // Вычисляем и показываем вершину
+                calculateDP(step.nodeId);
+                shownNodes.add(step.nodeId);
+            }
+            
             updateTable();
             updateFormula();
             draw();
@@ -294,13 +336,20 @@
             const tbody = document.getElementById('tableBody');
             tbody.innerHTML = '';
             
-            sortedNodes.forEach((node, index) => {
+            // Определяем текущую вершину (последняя добавленная)
+            let currentNodeId = null;
+            if (currentStep > 0 && animationQueue[currentStep - 1]?.type === 'node') {
+                currentNodeId = animationQueue[currentStep - 1].nodeId;
+            }
+            
+            sortedNodes.forEach((node) => {
                 const tr = document.createElement('tr');
                 const value = dpValues[node.id];
                 
-                if (index === currentStep) {
+                // Проверяем через shownNodes
+                if (node.id === currentNodeId) {
                     tr.className = 'current';
-                } else if (index < currentStep) {
+                } else if (shownNodes.has(node.id) && node.id !== currentNodeId) {
                     tr.className = 'completed';
                 }
                 
@@ -308,6 +357,7 @@
                     <td><strong>${node.id}</strong></td>
                     <td>${value !== undefined ? value : '-'}</td>
                 `;
+                
                 tbody.appendChild(tr);
             });
         }
@@ -374,19 +424,19 @@
                 });
             } else {
                 // Режим ДП-визуализации
-                // Рисуем рёбра
+                // Рисуем ТОЛЬКО показанные рёбра
                 graph.edges.forEach(edge => {
+                    const edgeKey = `${edge.from}->${edge.to}`;
+                    if (!shownEdges.has(edgeKey)) return; // Пропускаем ещё не показанные рёбра
+                    
                     const from = graph.nodes.find(n => n.id === edge.from);
                     const to = graph.nodes.find(n => n.id === edge.to);
                     if (from && to) {
                         drawArrow(from.x, from.y, to.x, to.y, '#ddd', 2);
                         
-                        // Отображаем вес ребра ТОЛЬКО если исходная вершина уже обработана
-                        const fromIndex = graph.nodes.findIndex(n => n.id === from.id);
-                        const isFromCompleted = fromIndex <= currentStep;
-                        
+                        // Отображаем вес ребра
                         const weight = dpValues[from.id];
-                        if (weight !== undefined && isFromCompleted) {
+                        if (weight !== undefined) {
                             const midX = (from.x + to.x) / 2;
                             const midY = (from.y + to.y) / 2;
                             
@@ -409,11 +459,13 @@
                     }
                 });
                 
-                // Рисуем вершины
+                // Рисуем ТОЛЬКО показанные вершины
                 graph.nodes.forEach((node, index) => {
-                    const isCompleted = index < currentStep;
-                    const isCurrent = index === currentStep;
+                    if (!shownNodes.has(node.id)) return; // Пропускаем ещё не показанные вершины
+                    
                     const value = dpValues[node.id];
+                    const isCurrent = (currentStep > 0 && animationQueue[currentStep - 1]?.type === 'node' && animationQueue[currentStep - 1]?.nodeId === node.id);
+                    const isCompleted = dpValues[node.id] !== undefined && !isCurrent;
                     
                     let color = '#f0f0f0';
                     if (isCurrent) color = '#fff3cd';
