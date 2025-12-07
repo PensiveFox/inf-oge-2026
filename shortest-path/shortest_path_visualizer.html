@@ -648,8 +648,13 @@
             if (dpMode) return;
             
             const rect = canvas.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
+            // Пересчитываем координаты с учётом масштаба canvas
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            const x = (e.clientX - rect.left) * scaleX;
+            const y = (e.clientY - rect.top) * scaleY;
+            
+            console.log(`Click: CSS(${e.clientX - rect.left}, ${e.clientY - rect.top}) -> Canvas(${x}, ${y})`);
             
             if (mode === 'node') {
                 addNode(x, y);
@@ -698,7 +703,7 @@
         }
         
         function getNodeAt(x, y) {
-            return nodes.find(n => Math.hypot(n.x - x, n.y - y) < 20);
+            return nodes.find(n => Math.hypot(n.x - x, n.y - y) < 30);
         }
         
         function clearGraph() {
