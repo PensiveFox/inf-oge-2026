@@ -398,6 +398,12 @@
                 end: endNode
             }));
             
+            // Сохраняем изображение canvas
+            if (sourceImage) {
+                const imageDataUrl = canvas.toDataURL('image/png');
+                localStorage.setItem('sourceGraphImage', imageDataUrl);
+            }
+            
             // Открываем страницу дерева путей
             window.open('paths_tree.html', '_blank');
         }
