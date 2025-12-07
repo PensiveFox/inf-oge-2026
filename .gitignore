@@ -1,0 +1,28 @@
+# Папка с сгенерированными изображениями анимаций
+output/
+
+# Виртуальное окружение Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Временные файлы
+*.tmp
+*.log
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Сгенерированные PNG файлы в корне
+path_*.png
+frame_*.png
+test_graph.png

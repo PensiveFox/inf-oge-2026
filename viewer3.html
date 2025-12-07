@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Просмотр путей графа</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        h1 {
+            color: white;
+            text-align: center;
+            margin-bottom: 30px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .selector-container {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            padding: 20px;
+            max-width: 500px;
+            margin: 0 auto 30px;
+        }
+        
+        .selector-container h3 {
+            margin-bottom: 15px;
+            color: #333;
+        }
+        
+        select, input {
+            width: 100%;
+            padding: 12px;
+            font-size: 16px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+        
+        select:focus, input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        button {
+            padding: 12px 24px;
+            font-size: 16px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+            margin: 5px;
+        }
+        
+        button.primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        button.primary:hover {
+            background: #5568d3;
+        }
+        
+        button.secondary {
+            background: #f0f0f0;
+            color: #333;
+        }
+        
+        button.secondary:hover {
+            background: #e0e0e0;
+        }
+        
+        .viewer-container {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            padding: 30px;
+            max-width: 1400px;
+            margin: 0 auto;
+            display: none;
+        }
+        
+        .viewer-content {
+            display: flex;
+            gap: 30px;
+        }
+        
+        .main-viewer {
+            flex: 1;
+        }
+        
+        .paths-history {
+            width: 300px;
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+        
+        .paths-history h3 {
+            margin-bottom: 15px;
+            color: #333;
+            font-size: 18px;
+        }
+        
+        .path-item {
+            padding: 10px;
+            margin: 8px 0;
+            background: white;
+            border-radius: 6px;
+            border-left: 4px solid #ddd;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        
+        .path-item.completed {
+            border-left-color: #27ae60;
+            opacity: 0.7;
+        }
+        
+        .path-item.current {
+            border-left-color: #667eea;
+            background: #e8f4f8;
+            font-weight: bold;
+        }
+        
+        .path-item-number {
+            color: #667eea;
+            font-weight: bold;
+            margin-right: 8px;
+        }
+        
+        .viewer-container.active {
+            display: block;
+        }
+        
+        .frame-display {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .frame-display img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .frame-info {
+            text-align: center;
+            margin-bottom: 15px;
+            font-size: 18px;
+            color: #333;
+            font-weight: 500;
+        }
+        
+        .thumbnails {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        .thumbnail {
+            cursor: pointer;
+            border: 3px solid transparent;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            width: 120px;
+            height: 80px;
+            object-fit: cover;
+        }
+        
+        .thumbnail:hover {
+            transform: scale(1.05);
+        }
+        
+        .thumbnail.active {
+            border-color: #667eea;
+            box-shadow: 0 0 15px rgba(102, 126, 234, 0.5);
+        }
+        
+        .project-info {
+            background: #f0f8ff;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🗺️ Просмотр путей графа</h1>
+    
+    <div class="selector-container">
+        <h3>Выберите проект</h3>
+        <select id="folderSelect" onchange="loadProject()">
+            <option value="">-- Загрузка проектов... --</option>
+        </select>
+        <p style="margin-top: 10px; color: #666; font-size: 14px;">
+            💡 Выберите проект из списка для просмотра путей
+        </p>
+    </div>
+    
+    <div class="viewer-container" id="viewerContainer">
+        <div class="project-info" id="projectInfo"></div>
+        
+        <div class="viewer-content">
+            <div class="main-viewer">
+        
+        <div class="frame-info">
+            <div style="margin-bottom: 10px;">
+                <strong>Путь <span id="currentPath">-</span>:</strong> <span id="pathDescription">-</span>
+            </div>
+            Кадр <span id="currentFrame">1</span> из <span id="totalFrames">0</span>
+        </div>
+        
+        <div class="frame-display">
+            <img id="mainImage" src="" alt="Кадр пути">
+        </div>
+        
+        <div class="controls" style="margin-bottom: 15px;">
+            <button class="secondary" onclick="previousPath()">⏪ Пред. путь</button>
+            <button class="secondary" onclick="nextPath()">След. путь ⏩</button>
+        </div>
+        
+        <div class="controls">
+            <button class="secondary" id="prevBtn" onclick="previousFrame()">⬅️ Предыдущий</button>
+            <button class="primary" id="playBtn" onclick="toggleAutoPlay()">▶️ Автопоказ</button>
+            <button class="secondary" id="nextBtn" onclick="nextFrame()">Следующий ➡️</button>
+        </div>
+        
+        <div class="thumbnails" id="thumbnailsContainer"></div>
+        
+            </div>
+            
+            <div class="paths-history">
+                <h3>📋 История путей</h3>
+                <div id="pathsList"></div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let currentFrame = 1;
+        let totalFrames = 0;
+        let autoPlayInterval = null;
+        let isPlaying = false;
+        let cacheVersion = Date.now();
+        let currentFolder = '';
+        let projectInfo = null;
+        let currentPathIndex = 0;
+        let pathGroups = [];
+        
+        async function loadProjectList() {
+            try {
+                const response = await fetch('output/');
+                const text = await response.text();
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(text, 'text/html');
+                const links = doc.querySelectorAll('a');
+                const folders = [];
+                
+                for (const link of links) {
+                    const href = link.getAttribute('href');
+                    if (href && href.endsWith('/') && !href.startsWith('..') && href !== '/') {
+                        folders.push(href.replace('/', ''));
+                    }
+                }
+                
+                const select = document.getElementById('folderSelect');
+                select.innerHTML = '<option value="">-- Выберите проект --</option>';
+                
+                if (folders.length === 0) {
+                    select.innerHTML = '<option value="">Нет доступных проектов</option>';
+                } else {
+                    folders.forEach(folder => {
+                        const option = document.createElement('option');
+                        option.value = folder;
+                        option.textContent = folder;
+                        select.appendChild(option);
+                    });
+                }
+            } catch (error) {
+                document.getElementById('folderSelect').innerHTML = '<option value="">Ошибка загрузки списка</option>';
+            }
+        }
+        
+        async function loadProject() {
+            const folderName = document.getElementById('folderSelect').value;
+            if (!folderName) {
+                return;
+            }
+            
+            currentFolder = `output/${folderName}`;
+            
+            try {
+                // Загружаем info.json
+                const response = await fetch(`${currentFolder}/info.json`);
+                if (!response.ok) throw new Error('Проект не найден');
+                
+                projectInfo = await response.json();
+                
+                // Проверяем тип проекта (анимированный или статичный)
+                const isAnimated = projectInfo.animation_type === 'progressive';
+                totalFrames = isAnimated ? projectInfo.total_frames : projectInfo.total_paths;
+                
+                // Показываем информацию о проекте
+                let infoHTML = `
+                    <strong>Проект:</strong> ${projectInfo.project_name}<br>
+                    <strong>Создан:</strong> ${new Date(projectInfo.created).toLocaleString('ru-RU')}<br>
+                `;
+                
+                if (isAnimated) {
+                    infoHTML += `
+                        <strong>Тип:</strong> Анимированный 🎬<br>
+                        <strong>Всего кадров:</strong> ${totalFrames} (${projectInfo.total_paths} путей)<br>
+                    `;
+                } else {
+                    infoHTML += `<strong>Всего путей:</strong> ${totalFrames}<br>`;
+                }
+                
+                document.getElementById('projectInfo').innerHTML = infoHTML;
+                
+                document.getElementById('totalFrames').textContent = totalFrames;
+                document.getElementById('viewerContainer').classList.add('active');
+                
+                currentFrame = 1;
+                groupFramesByPath();
+                generateThumbnails();
+                updateFrame();
+                
+            } catch (error) {
+                alert(`Ошибка загрузки проекта: ${error.message}\nПроверьте, что папка ${currentFolder} существует и содержит файлы.`);
+            }
+        }
+        
+        function generateThumbnails() {
+            const container = document.getElementById('thumbnailsContainer');
+            container.innerHTML = '';
+            
+            const isAnimated = projectInfo.animation_type === 'progressive';
+            
+            if (isAnimated) {
+                // Для анимированных проектов показываем миниатюры ключевых кадров
+                const keyFrames = [];
+                let currentPathIdx = 0;
+                
+                // Находим последние кадры каждого пути
+                for (let i = 0; i < projectInfo.frames.length; i++) {
+                    const frame = projectInfo.frames[i];
+                    if (frame.path_index !== currentPathIdx) {
+                        currentPathIdx = frame.path_index;
+                    }
+                    // Берём первый и последний кадр каждого пути
+                    if (frame.step === 1 || i === projectInfo.frames.length - 1 || 
+                        (i < projectInfo.frames.length - 1 && projectInfo.frames[i + 1].path_index !== frame.path_index)) {
+                        keyFrames.push(frame.number);
+                    }
+                }
+                
+                // Показываем только ключевые кадры как миниатюры
+                keyFrames.slice(0, 20).forEach(frameNum => {
+                    const img = document.createElement('img');
+                    img.src = `${currentFolder}/frame_${String(frameNum).padStart(4, '0')}.png`;
+                    img.className = 'thumbnail' + (frameNum === 1 ? ' active' : '');
+                    img.alt = `Кадр ${frameNum}`;
+                    img.onclick = () => goToFrame(frameNum);
+                    container.appendChild(img);
+                });
+            } else {
+                // Для статичных проектов показываем все
+                for (let i = 1; i <= totalFrames; i++) {
+                    const img = document.createElement('img');
+                    img.src = `${currentFolder}/path_${String(i).padStart(2, '0')}.png`;
+                    img.className = 'thumbnail' + (i === 1 ? ' active' : '');
+                    img.alt = `Путь ${i}`;
+                    img.title = projectInfo.paths[i-1];
+                    img.onclick = () => goToFrame(i);
+                    container.appendChild(img);
+                }
+            }
+        }
+        
+        function updateFrame() {
+            const isAnimated = projectInfo.animation_type === 'progressive';
+            
+            if (isAnimated) {
+                document.getElementById('mainImage').src = `${currentFolder}/frame_${String(currentFrame).padStart(4, '0')}.png`;
+            } else {
+                document.getElementById('mainImage').src = `${currentFolder}/path_${String(currentFrame).padStart(2, '0')}.png`;
+            }
+            
+            document.getElementById('currentFrame').textContent = currentFrame;
+            
+            document.getElementById('prevBtn').disabled = currentFrame === 1;
+            document.getElementById('nextBtn').disabled = currentFrame === totalFrames;
+            
+            document.querySelectorAll('.thumbnail').forEach((thumb, index) => {
+                thumb.classList.toggle('active', index + 1 === currentFrame);
+            });
+            
+            // Обновляем информацию о пути
+            updatePathInfo();
+        }
+        
+        function groupFramesByPath() {
+            if (!projectInfo || !projectInfo.frames) return;
+            
+            pathGroups = [];
+            let currentGroup = [];
+            let lastPathIndex = 0;
+            
+            projectInfo.frames.forEach(frame => {
+                if (frame.path_index !== lastPathIndex && currentGroup.length > 0) {
+                    pathGroups.push(currentGroup);
+                    currentGroup = [];
+                }
+                currentGroup.push(frame.number);
+                lastPathIndex = frame.path_index;
+            });
+            
+            if (currentGroup.length > 0) {
+                pathGroups.push(currentGroup);
+            }
+        }
+        
+        function updatePathInfo() {
+            if (!projectInfo || pathGroups.length === 0) return;
+            
+            // Находим, к какому пути относится текущий кадр
+            for (let i = 0; i < pathGroups.length; i++) {
+                if (pathGroups[i].includes(currentFrame)) {
+                    currentPathIndex = i;
+                    break;
+                }
+            }
+            
+            document.getElementById('currentPath').textContent = `${currentPathIndex + 1}/${pathGroups.length}`;
+            if (projectInfo.paths && projectInfo.paths[currentPathIndex]) {
+                document.getElementById('pathDescription').textContent = projectInfo.paths[currentPathIndex];
+            }
+            
+            // Обновляем список путей
+            updatePathsList();
+        }
+        
+        function updatePathsList() {
+            if (!projectInfo || !projectInfo.frames) return;
+            
+            const container = document.getElementById('pathsList');
+            container.innerHTML = '';
+            
+            // Находим текущий кадр в массиве frames
+            const currentFrameInfo = projectInfo.frames.find(f => f.number === currentFrame);
+            if (!currentFrameInfo) return;
+            
+            const currentPathIdx = currentFrameInfo.path_index;
+            const isLastStepOfPath = currentFrameInfo.step === projectInfo.frames.filter(f => f.path_index === currentPathIdx).length;
+            
+            // Показываем все ПОЛНОСТЬЮ завершённые пути
+            const completedPathsCount = isLastStepOfPath ? currentPathIdx : currentPathIdx - 1;
+            
+            for (let i = 0; i < completedPathsCount; i++) {
+                const pathDiv = document.createElement('div');
+                pathDiv.className = 'path-item completed';
+                pathDiv.innerHTML = `
+                    <span class="path-item-number">${i + 1}.</span>
+                    ${projectInfo.paths[i]}
+                `;
+                container.appendChild(pathDiv);
+            }
+            
+            // Показываем текущий строящийся путь ТОЛЬКО если он ещё не завершён
+            if (!isLastStepOfPath) {
+                const currentPathDiv = document.createElement('div');
+                currentPathDiv.className = 'path-item current';
+                currentPathDiv.innerHTML = `
+                    <span class="path-item-number">${currentPathIdx}.</span>
+                    ${currentFrameInfo.current_path}
+                `;
+                container.appendChild(currentPathDiv);
+            }
+        }
+        
+        function nextPath() {
+            if (currentPathIndex < pathGroups.length - 1) {
+                currentPathIndex++;
+                currentFrame = pathGroups[currentPathIndex][0];
+                updateFrame();
+            }
+        }
+        
+        function previousPath() {
+            if (currentPathIndex > 0) {
+                currentPathIndex--;
+                currentFrame = pathGroups[currentPathIndex][0];
+                updateFrame();
+            }
+        }
+        
+        function nextFrame() {
+            if (currentFrame < totalFrames) {
+                currentFrame++;
+                updateFrame();
+            } else if (isPlaying) {
+                // Достигли последнего кадра - останавливаем автопоказ
+                toggleAutoPlay();
+            }
+        }
+        
+        function previousFrame() {
+            if (currentFrame > 1) {
+                currentFrame--;
+                updateFrame();
+            }
+        }
+        
+        function goToFrame(frameNumber) {
+            currentFrame = frameNumber;
+            updateFrame();
+        }
+        
+        function toggleAutoPlay() {
+            const playBtn = document.getElementById('playBtn');
+            
+            if (isPlaying) {
+                clearInterval(autoPlayInterval);
+                playBtn.textContent = '▶️ Автопоказ';
+                playBtn.classList.remove('secondary');
+                playBtn.classList.add('primary');
+                isPlaying = false;
+            } else {
+                autoPlayInterval = setInterval(nextFrame, 500);  // 0.5 секунды - плавно и не медленно
+                playBtn.textContent = '⏸️ Пауза';
+                playBtn.classList.remove('primary');
+                playBtn.classList.add('secondary');
+                isPlaying = true;
+            }
+        }
+        
+        // Keyboard navigation
+        document.addEventListener('keydown', (e) => {
+            if (document.getElementById('viewerContainer').classList.contains('active')) {
+                if (e.key === 'ArrowLeft') previousFrame();
+                if (e.key === 'ArrowRight') nextFrame();
+                if (e.key === ' ') {
+                    e.preventDefault();
+                    toggleAutoPlay();
+                }
+            }
+        });
+        
+        // Загружаем список проектов при загрузке страницы
+        loadProjectList();
+    </script>
+</body>
+</html>

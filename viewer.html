@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Просмотр путей A → H</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        h1 {
+            color: white;
+            margin-bottom: 30px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .viewer-container {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            padding: 30px;
+            max-width: 1200px;
+            width: 100%;
+        }
+        
+        .frame-display {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .frame-display img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        button {
+            padding: 12px 24px;
+            font-size: 16px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+        }
+        
+        button.primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        button.primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        
+        button.secondary {
+            background: #f0f0f0;
+            color: #333;
+        }
+        
+        button.secondary:hover {
+            background: #e0e0e0;
+        }
+        
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .frame-info {
+            text-align: center;
+            margin-bottom: 15px;
+            font-size: 18px;
+            color: #333;
+            font-weight: 500;
+        }
+        
+        .thumbnails {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        .thumbnail {
+            cursor: pointer;
+            border: 3px solid transparent;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            overflow: hidden;
+            width: 150px;
+            height: 100px;
+            object-fit: cover;
+        }
+        
+        .thumbnail:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+        
+        .thumbnail.active {
+            border-color: #667eea;
+            box-shadow: 0 0 15px rgba(102, 126, 234, 0.5);
+        }
+        
+        .auto-play-info {
+            text-align: center;
+            margin-top: 10px;
+            color: #666;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🗺️ Все пути из вершины A в вершину H</h1>
+    
+    <div class="viewer-container">
+        <div class="frame-info">
+            Путь <span id="currentFrame">1</span> из <span id="totalFrames">10</span>
+        </div>
+        
+        <div class="frame-display">
+            <img id="mainImage" src="frame_01.png" alt="Кадр пути">
+        </div>
+        
+        <div class="controls">
+            <button class="secondary" id="prevBtn" onclick="previousFrame()">⬅️ Предыдущий</button>
+            <button class="primary" id="playBtn" onclick="toggleAutoPlay()">▶️ Автопоказ</button>
+            <button class="secondary" id="nextBtn" onclick="nextFrame()">Следующий ➡️</button>
+        </div>
+        
+        <div class="auto-play-info" id="autoPlayInfo"></div>
+        
+        <div class="thumbnails" id="thumbnailsContainer">
+            <!-- Миниатюры будут добавлены автоматически -->
+        </div>
+    </div>
+    
+    <script>
+        let currentFrame = 1;
+        const totalFrames = 10;
+        let autoPlayInterval = null;
+        let isPlaying = false;
+        
+        // Генерируем миниатюры автоматически
+        function generateThumbnails() {
+            const container = document.getElementById('thumbnailsContainer');
+            const timestamp = new Date().getTime();
+            for (let i = 1; i <= totalFrames; i++) {
+                const img = document.createElement('img');
+                img.src = `frame_${String(i).padStart(2, '0')}.png?t=${timestamp}`;
+                img.className = 'thumbnail' + (i === 1 ? ' active' : '');
+                img.alt = `Путь ${i}`;
+                img.onclick = () => goToFrame(i);
+                container.appendChild(img);
+            }
+        }
+        
+        function updateFrame() {
+            // Добавляем timestamp для обхода кэша
+            const timestamp = new Date().getTime();
+            document.getElementById('mainImage').src = `frame_${String(currentFrame).padStart(2, '0')}.png?t=${timestamp}`;
+            document.getElementById('currentFrame').textContent = currentFrame;
+            
+            // Update button states
+            document.getElementById('prevBtn').disabled = currentFrame === 1;
+            document.getElementById('nextBtn').disabled = currentFrame === totalFrames;
+            
+            // Update thumbnails
+            document.querySelectorAll('.thumbnail').forEach((thumb, index) => {
+                thumb.classList.toggle('active', index + 1 === currentFrame);
+            });
+        }
+        
+        function nextFrame() {
+            if (currentFrame < totalFrames) {
+                currentFrame++;
+                updateFrame();
+            } else if (isPlaying) {
+                currentFrame = 1;
+                updateFrame();
+            }
+        }
+        
+        function previousFrame() {
+            if (currentFrame > 1) {
+                currentFrame--;
+                updateFrame();
+            }
+        }
+        
+        function goToFrame(frameNumber) {
+            currentFrame = frameNumber;
+            updateFrame();
+        }
+        
+        function toggleAutoPlay() {
+            const playBtn = document.getElementById('playBtn');
+            const autoPlayInfo = document.getElementById('autoPlayInfo');
+            
+            if (isPlaying) {
+                clearInterval(autoPlayInterval);
+                playBtn.textContent = '▶️ Автопоказ';
+                playBtn.classList.remove('secondary');
+                playBtn.classList.add('primary');
+                autoPlayInfo.textContent = '';
+                isPlaying = false;
+            } else {
+                autoPlayInterval = setInterval(nextFrame, 2000);
+                playBtn.textContent = '⏸️ Пауза';
+                playBtn.classList.remove('primary');
+                playBtn.classList.add('secondary');
+                autoPlayInfo.textContent = 'Автоматический показ активен (смена каждые 2 сек)';
+                isPlaying = true;
+            }
+        }
+        
+        // Keyboard navigation
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowLeft') previousFrame();
+            if (e.key === 'ArrowRight') nextFrame();
+            if (e.key === ' ') {
+                e.preventDefault();
+                toggleAutoPlay();
+            }
+        });
+        
+        // Initialize
+        generateThumbnails();
+        updateFrame();
+    </script>
+</body>
+</html>

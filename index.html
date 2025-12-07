@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Graph Animation Studio</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 40px;
+            max-width: 800px;
+            width: 100%;
+        }
+        
+        h1 {
+            text-align: center;
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 40px;
+        }
+        
+        .workflow {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .step {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+            transition: all 0.3s;
+        }
+        
+        .step:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+        
+        .step-number {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            background: #667eea;
+            color: white;
+            border-radius: 50%;
+            line-height: 40px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        
+        .step h3 {
+            color: #333;
+            margin: 10px 0;
+            font-size: 16px;
+        }
+        
+        .step p {
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .btn {
+            padding: 15px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-decoration: none;
+            text-align: center;
+            display: block;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-secondary {
+            background: #27ae60;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #229954;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(39, 174, 96, 0.4);
+        }
+        
+        .btn-info {
+            background: #3498db;
+            color: white;
+        }
+        
+        .btn-info:hover {
+            background: #2980b9;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(52, 152, 219, 0.4);
+        }
+        
+        .quick-start {
+            background: #e8f4f8;
+            padding: 20px;
+            border-radius: 12px;
+            margin-top: 30px;
+        }
+        
+        .quick-start h3 {
+            color: #333;
+            margin-bottom: 15px;
+        }
+        
+        .quick-start ol {
+            margin-left: 20px;
+            color: #555;
+        }
+        
+        .quick-start li {
+            margin: 8px 0;
+        }
+        
+        .quick-start code {
+            background: #fff;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            color: #667eea;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎬 Graph Animation Studio</h1>
+        <p class="subtitle">Создавайте анимированные визуализации путей графа</p>
+        
+        <div class="workflow">
+            <div class="step">
+                <div class="step-number">1</div>
+                <h3>📝 Редактор</h3>
+                <p>Нарисуйте граф мышью или загрузите JSON</p>
+            </div>
+            
+            <div class="step">
+                <div class="step-number">2</div>
+                <h3>🎬 Генерация</h3>
+                <p>Создайте анимацию путей автоматически</p>
+            </div>
+            
+            <div class="step">
+                <div class="step-number">3</div>
+                <h3>👁️ Просмотр</h3>
+                <p>Смотрите анимацию с автопоказом</p>
+            </div>
+        </div>
+        
+        <div class="buttons">
+            <a href="graph_editor.html" class="btn btn-primary">
+                📝 Открыть редактор графов
+            </a>
+            
+            <a href="viewer3.html" class="btn btn-secondary">
+                👁️ Просмотр анимаций
+            </a>
+            
+            <a href="test_graph.png" class="btn btn-info" target="_blank">
+                🖼️ Пример графа
+            </a>
+        </div>
+        
+        <div class="quick-start">
+            <h3>🚀 Быстрый старт:</h3>
+            <ol>
+                <li>Откройте <strong>Редактор графов</strong></li>
+                <li>Нарисуйте граф (кликайте для вершин, соединяйте рёбрами)</li>
+                <li>Нажмите <code>💾 Экспорт JSON</code> → сохраните в <code>json/</code></li>
+                <li>В терминале запустите:
+                    <br><code>./venv/bin/python generate_animated_paths.py</code>
+                </li>
+                <li>Введите имя проекта и путь к JSON</li>
+                <li>Откройте <strong>Просмотр анимаций</strong> и выберите проект!</li>
+            </ol>
+        </div>
+    </div>
+</body>
+</html>

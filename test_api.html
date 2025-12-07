@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Тест API</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 40px;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        button {
+            padding: 15px 30px;
+            font-size: 18px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 10px 0;
+        }
+        button:hover {
+            background: #5568d3;
+        }
+        #result {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f0f0f0;
+            border-radius: 8px;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <h1>Тест генерации анимации</h1>
+    <p>Нажмите кнопку для тестирования API:</p>
+    <button onclick="testAPI()">🎬 Тестовая генерация</button>
+    <div id="result"></div>
+    
+    <script>
+        async function testAPI() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.textContent = '⏳ Отправка запроса...';
+            
+            const testData = {
+                projectName: 'test_' + Date.now(),
+                graphData: {
+                    nodes: [
+                        {label: 'A', x: 100, y: 200},
+                        {label: 'B', x: 300, y: 200},
+                        {label: 'C', x: 500, y: 200}
+                    ],
+                    edges: [
+                        {from: 'A', to: 'B'},
+                        {from: 'B', to: 'C'}
+                    ]
+                },
+                startNode: 'A',
+                endNode: 'C'
+            };
+            
+            try {
+                console.log('Отправка:', testData);
+                
+                const response = await fetch('http://localhost:5000/api/generate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(testData)
+                });
+                
+                console.log('Response status:', response.status);
+                
+                const result = await response.json();
+                console.log('Result:', result);
+                
+                if (result.success) {
+                    resultDiv.textContent = `✅ Успех!\n\nПроект: ${result.projectName}\nКадров: ${result.totalFrames}\nПутей: ${result.totalPaths}\nПапка: ${result.outputDir}`;
+                    
+                    // Открываем просмотрщик
+                    setTimeout(() => {
+                        window.open('viewer3.html', '_blank');
+                    }, 1000);
+                } else {
+                    resultDiv.textContent = `❌ Ошибка:\n${result.error}`;
+                }
+            } catch (error) {
+                console.error('Ошибка:', error);
+                resultDiv.textContent = `❌ Ошибка запроса:\n${error.message}\n\nПроверьте:\n- Запущен ли api_server.py?\n- Порт 5000 доступен?`;
+            }
+        }
+    </script>
+</body>
+</html>
