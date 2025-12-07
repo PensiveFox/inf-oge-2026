@@ -390,6 +390,13 @@
                     ctx.textAlign = 'center';
                     ctx.textBaseline = 'middle';
                     ctx.fillText(node.label, node.x, node.y);
+                    
+                    // Отображаем значение вершины снизу
+                    if (node.value) {
+                        ctx.fillStyle = '#667eea';
+                        ctx.font = 'bold 12px Arial';
+                        ctx.fillText(node.value, node.x, node.y + 28);
+                    }
                 });
             } else {
                 // Режим ДП-визуализации
@@ -552,17 +559,22 @@
         
         function addNode(x, y) {
             const label = String.fromCharCode(nextLetter++);
-            nodes.push({ label, x, y });
+            // Запрашиваем значение вершины
+            const value = prompt(`Введите значение вершины ${label}:`, '1');
+            if (value === null) {
+                nextLetter--; // Отменяем добавление
+                return;
+            }
+            
+            const v = parseFloat(value) || 1;
+            nodes.push({ label, x, y, value: v });
             draw();
         }
         
         function addEdge(from, to) {
-            // Запрашиваем вес ребра
-            const weight = prompt(`Введите вес ребра ${from.label} → ${to.label}:`, '1');
-            if (weight === null) return; // Отменено
-            
-            const w = parseFloat(weight) || 1;
-            edges.push({ from, to, weight: w });
+            // Вес ребра берётся из исходной вершины (from)
+            const weight = from.value || 1;
+            edges.push({ from, to, weight: weight });
             draw();
         }
         
