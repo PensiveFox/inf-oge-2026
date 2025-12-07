@@ -353,25 +353,7 @@
                 edges.forEach(edge => {
                     drawArrow(edge.from.x, edge.from.y, edge.to.x, edge.to.y, '#667eea', 3);
                     
-                    // Отображаем вес на середине ребра
-                    const midX = (edge.from.x + edge.to.x) / 2;
-                    const midY = (edge.from.y + edge.to.y) / 2;
-                    
-                    // Рисуем белый круг под текстом
-                    ctx.beginPath();
-                    ctx.arc(midX, midY, 15, 0, 2 * Math.PI);
-                    ctx.fillStyle = 'white';
-                    ctx.fill();
-                    ctx.strokeStyle = '#667eea';
-                    ctx.lineWidth = 2;
-                    ctx.stroke();
-                    
-                    // Рисуем вес
-                    ctx.fillStyle = '#667eea';
-                    ctx.font = 'bold 14px Arial';
-                    ctx.textAlign = 'center';
-                    ctx.textBaseline = 'middle';
-                    ctx.fillText(edge.weight || 1, midX, midY);
+                    // Веса рёбер отображаются только в режиме ДП
                 });
                 
                 // Рисуем вершины
@@ -391,12 +373,7 @@
                     ctx.textBaseline = 'middle';
                     ctx.fillText(node.label, node.x, node.y);
                     
-                    // Отображаем значение вершины снизу
-                    if (node.value) {
-                        ctx.fillStyle = '#667eea';
-                        ctx.font = 'bold 12px Arial';
-                        ctx.fillText(node.value, node.x, node.y + 28);
-                    }
+                    // Значение вершины показывается только в режиме ДП
                 });
             } else {
                 // Режим ДП-визуализации
@@ -559,22 +536,14 @@
         
         function addNode(x, y) {
             const label = String.fromCharCode(nextLetter++);
-            // Запрашиваем значение вершины
-            const value = prompt(`Введите значение вершины ${label}:`, '1');
-            if (value === null) {
-                nextLetter--; // Отменяем добавление
-                return;
-            }
-            
-            const v = parseFloat(value) || 1;
-            nodes.push({ label, x, y, value: v });
+            // Значение вершины будет вычислено в ДП (количество путей)
+            nodes.push({ label, x, y });
             draw();
         }
         
         function addEdge(from, to) {
-            // Вес ребра берётся из исходной вершины (from)
-            const weight = from.value || 1;
-            edges.push({ from, to, weight: weight });
+            // Вес ребра будет браться из ДП-таблицы (кол-во путей через from)
+            edges.push({ from, to });
             draw();
         }
         
@@ -610,8 +579,7 @@
             
             graph.edges = edges.map(e => ({
                 from: e.from.label,
-                to: e.to.label,
-                weight: e.weight || 1
+                to: e.to.label
             }));
             
             // Рассчитываем уровни (топологическая сортировка)
