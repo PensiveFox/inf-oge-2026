@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Дерево путей - Яблоки на ветках</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 100vh;
+            padding: 15px;
+            overflow: hidden;
+        }
+        
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 12px;
+        }
+        
+        .header h1 {
+            font-size: 26px;
+            margin-bottom: 5px;
+        }
+        
+        .header p {
+            font-size: 14px;
+        }
+        
+        .main-container {
+            display: flex;
+            gap: 15px;
+            max-width: 100%;
+            height: calc(100vh - 120px);
+            margin: 0 auto;
+        }
+        
+        .canvas-container {
+            flex: 2;
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        .sidebar {
+            flex: 0 0 380px;
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        canvas {
+            display: block;
+            width: 100%;
+            flex: 1;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            background: linear-gradient(to bottom, #f8f9fa 0%, #ffffff 100%);
+        }
+        
+        .info-section {
+            margin-bottom: 15px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+        
+        .info-section:last-child {
+            border-bottom: none;
+        }
+        
+        .info-section h3 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .count-display {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            margin-bottom: 15px;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+        
+        .count-display .number {
+            font-size: 36px;
+            font-weight: bold;
+            display: block;
+            margin-bottom: 3px;
+        }
+        
+        .count-display .label {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        
+        .paths-list {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            flex: 1;
+            overflow-y: auto;
+            max-height: 300px;
+        }
+        
+        .path-item {
+            background: linear-gradient(to right, #f8f9fa, #ffffff);
+            padding: 8px 10px;
+            border-radius: 6px;
+            border-left: 3px solid #27ae60;
+            font-size: 13px;
+            transition: all 0.3s;
+        }
+        
+        .path-item:hover {
+            transform: translateX(5px);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .legend {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+        }
+        
+        .legend-circle {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            border: 2px solid #333;
+            flex-shrink: 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🌳 Дерево всех путей</h1>
+        <p>Визуализация методом построения дерева путей</p>
+    </div>
+    
+    <div class="main-container">
+        <div class="canvas-container">
+            <canvas id="canvas"></canvas>
+        </div>
+        
+        <div class="sidebar">
+            <div class="count-display">
+                <span class="number" id="totalCount">0</span>
+                <span class="label">всего путей найдено</span>
+            </div>
+            
+            <div class="info-section">
+                <h3>📊 Принцип метода</h3>
+                <p style="font-size: 14px; line-height: 1.6; color: #555;">
+                    Строим дерево, где каждый путь от начала до конца — это отдельная ветка. 
+                    <strong>Количество путей = количество листьев (конечных точек)</strong> на дереве.
+                </p>
+            </div>
+            
+            <div class="info-section">
+                <h3>🎨 Легенда</h3>
+                <div class="legend">
+                    <div class="legend-item">
+                        <div class="legend-circle" style="background: #e74c3c; border-color: #c0392b;"></div>
+                        <span>Начальный узел</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-circle" style="background: #3498db; border-color: #2980b9;"></div>
+                        <span>Промежуточные узлы</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-circle" style="background: #2ecc71; border-color: #27ae60;"></div>
+                        <span>Конечные узлы (листья)</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="info-section">
+                <h3>📝 Все пути (<span id="pathCount">0</span>)</h3>
+                <div class="paths-list" id="pathsList"></div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        let paths = [];
+        let startNode = 'A';
+        let endNode = 'H';
+        
+        // Загружаем данные из localStorage или используем пример
+        function loadData() {
+            const savedData = localStorage.getItem('treeGraphData');
+            
+            if (savedData) {
+                const data = JSON.parse(savedData);
+                const graph = data.graph;
+                startNode = data.start;
+                endNode = data.end;
+                
+                // Находим все пути
+                paths = findAllPaths(graph, startNode, endNode);
+                
+                console.log('Загружены данные из редактора');
+                console.log('Найдено путей:', paths.length);
+            } else {
+                // Пример по умолчанию
+                paths = [
+                    ['A', 'B', 'E', 'G', 'H'],
+                    ['A', 'B', 'E', 'H'],
+                    ['A', 'C', 'E', 'G', 'H'],
+                    ['A', 'C', 'E', 'H'],
+                    ['A', 'C', 'F', 'G', 'H'],
+                    ['A', 'C', 'F', 'H'],
+                    ['A', 'D', 'F', 'G', 'H'],
+                    ['A', 'D', 'F', 'H']
+                ];
+                console.log('Используется пример по умолчанию');
+            }
+        }
+        
+        // Поиск всех путей (DFS)
+        function findAllPaths(graph, start, end) {
+            const allPaths = [];
+            const visited = new Set();
+            
+            // Построение adjacency list
+            const adjList = {};
+            graph.edges.forEach(edge => {
+                if (!adjList[edge.from]) adjList[edge.from] = [];
+                adjList[edge.from].push(edge.to);
+            });
+            
+            function dfs(node, path) {
+                if (node === end) {
+                    allPaths.push([...path]);
+                    return;
+                }
+                
+                visited.add(node);
+                
+                if (adjList[node]) {
+                    adjList[node].forEach(neighbor => {
+                        if (!visited.has(neighbor)) {
+                            path.push(neighbor);
+                            dfs(neighbor, path);
+                            path.pop();
+                        }
+                    });
+                }
+                
+                visited.delete(node);
+            }
+            
+            dfs(start, [start]);
+            return allPaths;
+        }
+        
+        // Вычисляем позиции для дерева
+        let treeNodes = [];
+        
+        function buildTree() {
+            treeNodes = [];
+            const padding = 60;
+            const topPadding = 40;
+            const bottomPadding = 50;
+            
+            // Строим дерево префиксов
+            const tree = {};
+            let rootKey = null;
+            
+            paths.forEach((path, pathIndex) => {
+                let currentKey = '';
+                path.forEach((node, depth) => {
+                    const parentKey = currentKey;
+                    currentKey = currentKey ? `${currentKey}->${node}` : node;
+                    
+                    if (depth === 0) rootKey = currentKey;
+                    
+                    if (!tree[currentKey]) {
+                        tree[currentKey] = {
+                            label: node,
+                            depth: depth,
+                            parentKey: parentKey,
+                            children: [],
+                            pathsThrough: [],
+                            isLeaf: false,
+                            x: 0,
+                            y: 0
+                        };
+                    }
+                    
+                    tree[currentKey].pathsThrough.push(pathIndex);
+                    
+                    if (depth === path.length - 1) {
+                        tree[currentKey].isLeaf = true;
+                    }
+                    
+                    if (parentKey && !tree[parentKey].children.includes(currentKey)) {
+                        tree[parentKey].children.push(currentKey);
+                    }
+                });
+            });
+            
+            // Находим максимальную глубину
+            let maxDepth = 0;
+            Object.values(tree).forEach(node => {
+                if (node.depth > maxDepth) maxDepth = node.depth;
+            });
+            
+            const availableHeight = canvas.height - topPadding - bottomPadding;
+            const levelHeight = maxDepth > 0 ? Math.min(availableHeight / maxDepth, 100) : 100;
+            
+            // Находим все листья и присваиваем им номера
+            const leaves = Object.keys(tree).filter(key => tree[key].isLeaf);
+            leaves.forEach((leafKey, index) => {
+                tree[leafKey].pathNumber = index + 1;
+            });
+            
+            // Используем DFS обход для размещения узлов слева направо
+            // Это минимизирует пересечения рёбер
+            const minNodeSpacing = 80; // Минимальное расстояние между узлами
+            let currentX = padding;
+            
+            // Устанавливаем Y координаты для всех узлов
+            Object.values(tree).forEach(node => {
+                node.y = topPadding + node.depth * levelHeight;
+            });
+            
+            // DFS обход для установки X координат
+            function dfsLayout(nodeKey, visited = new Set()) {
+                if (visited.has(nodeKey)) return;
+                visited.add(nodeKey);
+                
+                const node = tree[nodeKey];
+                
+                if (node.children.length === 0) {
+                    // Лист - размещаем слева направо
+                    node.x = currentX;
+                    currentX += minNodeSpacing;
+                } else {
+                    // Сначала размещаем всех детей
+                    node.children.forEach(childKey => {
+                        dfsLayout(childKey, visited);
+                    });
+                    
+                    // Размещаем узел по центру между детьми
+                    const childrenX = node.children.map(childKey => tree[childKey].x);
+                    const minX = Math.min(...childrenX);
+                    const maxX = Math.max(...childrenX);
+                    node.x = (minX + maxX) / 2;
+                }
+            }
+            
+            // Начинаем обход с корня
+            if (rootKey) {
+                dfsLayout(rootKey);
+            }
+            
+            // Центрируем всё дерево
+            const allNodes = Object.values(tree);
+            const minTreeX = Math.min(...allNodes.map(n => n.x));
+            const maxTreeX = Math.max(...allNodes.map(n => n.x));
+            const treeWidth = maxTreeX - minTreeX;
+            const availableWidth = canvas.width - 2 * padding;
+            
+            let scale = 1;
+            let offsetX = 0;
+            
+            if (treeWidth > availableWidth) {
+                // Масштабируем если не помещается
+                scale = availableWidth / treeWidth;
+                offsetX = padding;
+            } else {
+                // Центрируем
+                offsetX = (canvas.width - treeWidth) / 2;
+            }
+            
+            // Применяем масштабирование и смещение
+            allNodes.forEach(node => {
+                node.x = offsetX + (node.x - minTreeX) * scale;
+            });
+            
+            // Финальная коррекция: проверяем минимальные расстояния на каждом уровне
+            const nodesByDepth = {};
+            for (let depth = 0; depth <= maxDepth; depth++) {
+                nodesByDepth[depth] = [];
+            }
+            
+            allNodes.forEach(node => {
+                node.key = node.key || Object.keys(tree).find(k => tree[k] === node);
+                nodesByDepth[node.depth].push(node);
+            });
+            
+            // Корректируем каждый уровень
+            for (let depth = 0; depth <= maxDepth; depth++) {
+                const nodesAtLevel = nodesByDepth[depth];
+                nodesAtLevel.sort((a, b) => a.x - b.x);
+                
+                // Проверяем минимальные расстояния
+                let needsAdjustment = false;
+                for (let i = 1; i < nodesAtLevel.length; i++) {
+                    if (nodesAtLevel[i].x - nodesAtLevel[i-1].x < minNodeSpacing * 0.8) {
+                        needsAdjustment = true;
+                        break;
+                    }
+                }
+                
+                if (needsAdjustment && nodesAtLevel.length > 1) {
+                    // Перераспределяем узлы равномерно на этом уровне
+                    const levelStart = nodesAtLevel[0].x;
+                    const levelEnd = nodesAtLevel[nodesAtLevel.length - 1].x;
+                    const levelWidth = levelEnd - levelStart;
+                    const neededWidth = (nodesAtLevel.length - 1) * minNodeSpacing * 0.9;
+                    
+                    if (levelWidth < neededWidth) {
+                        // Расширяем уровень
+                        const spacing = minNodeSpacing * 0.9;
+                        const totalWidth = spacing * (nodesAtLevel.length - 1);
+                        const startX = (canvas.width - totalWidth) / 2;
+                        
+                        nodesAtLevel.forEach((node, idx) => {
+                            node.x = startX + idx * spacing;
+                        });
+                    }
+                }
+            }
+            
+            // Добавляем все узлы в treeNodes
+            Object.keys(tree).forEach(key => {
+                treeNodes.push(tree[key]);
+            });
+        }
+        
+        function resizeCanvas() {
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+            buildTree();
+            draw();
+        }
+        
+        window.addEventListener('resize', resizeCanvas);
+        setTimeout(resizeCanvas, 100);
+        
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Создаём карту узлов для быстрого доступа
+            const nodeMap = {};
+            treeNodes.forEach(node => {
+                nodeMap[node.key] = node;
+            });
+            
+            // Рисуем ветки (рёбра) - от родителей к детям
+            const drawnEdges = new Set();
+            
+            treeNodes.forEach(node => {
+                if (node.children && node.children.length > 0) {
+                    node.children.forEach(childKey => {
+                        const child = nodeMap[childKey];
+                        if (child) {
+                            const edgeKey = `${node.key}->${childKey}`;
+                            if (!drawnEdges.has(edgeKey)) {
+                                drawnEdges.add(edgeKey);
+                                
+                                // Вычисляем радиусы узлов
+                                const nodeRadius = node.depth === 0 ? 20 : 16;
+                                const childRadius = child.isLeaf ? 14 : 16;
+                                
+                                // Вычисляем угол между узлами
+                                const angle = Math.atan2(child.y - node.y, child.x - node.x);
+                                
+                                // Начало линии - на границе родителя
+                                const startX = node.x + nodeRadius * Math.cos(angle);
+                                const startY = node.y + nodeRadius * Math.sin(angle);
+                                
+                                // Конец линии - на границе ребёнка
+                                const endX = child.x - childRadius * Math.cos(angle);
+                                const endY = child.y - childRadius * Math.sin(angle);
+                                
+                                // Ветка дерева
+                                ctx.beginPath();
+                                ctx.moveTo(startX, startY);
+                                ctx.lineTo(endX, endY);
+                                
+                                // Градиент для ветки
+                                const gradient = ctx.createLinearGradient(startX, startY, endX, endY);
+                                gradient.addColorStop(0, '#95a5a6');
+                                gradient.addColorStop(1, '#7f8c8d');
+                                
+                                ctx.strokeStyle = gradient;
+                                ctx.lineWidth = 3;
+                                ctx.lineCap = 'round';
+                                ctx.stroke();
+                            }
+                        }
+                    });
+                }
+            });
+            
+            // Рисуем узлы
+            treeNodes.forEach(node => {
+                if (node.depth === 0) {
+                    // Корень дерева (стартовый узел) - красный
+                    drawNode(node.x, node.y, node.label, '#e74c3c', 40, true, false);
+                } else if (node.isLeaf) {
+                    // Листья (конечные узлы) - зелёные
+                    drawLeaf(node.x, node.y, node.label, node.pathNumber);
+                } else {
+                    // Промежуточные узлы - синие
+                    drawNode(node.x, node.y, node.label, '#3498db', 32, false, false);
+                }
+            });
+            
+            // Подсчёт конечных узлов (путей)
+            const pathsCount = treeNodes.filter(n => n.isLeaf).length;
+            ctx.fillStyle = '#2c3e50';
+            ctx.font = 'bold 18px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(`✓ Найдено путей: ${pathsCount}`, canvas.width / 2, canvas.height - 20);
+        }
+        
+        function drawNode(x, y, label, color, size, isRoot, isLeaf) {
+            // Тень
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.2)';
+            ctx.shadowBlur = 8;
+            ctx.shadowOffsetX = 2;
+            ctx.shadowOffsetY = 2;
+            
+            // Круг
+            ctx.beginPath();
+            ctx.arc(x, y, size / 2, 0, 2 * Math.PI);
+            ctx.fillStyle = color;
+            ctx.fill();
+            
+            // Сброс тени
+            ctx.shadowColor = 'transparent';
+            ctx.shadowBlur = 0;
+            ctx.shadowOffsetX = 0;
+            ctx.shadowOffsetY = 0;
+            
+            // Обводка
+            let strokeColor = '#2d3436';
+            let lineWidth = 3;
+            if (isRoot) {
+                strokeColor = '#c0392b';
+                lineWidth = 4;
+            } else if (isLeaf) {
+                strokeColor = '#27ae60';
+                lineWidth = 3;
+            } else {
+                strokeColor = '#2980b9';
+            }
+            
+            ctx.strokeStyle = strokeColor;
+            ctx.lineWidth = lineWidth;
+            ctx.stroke();
+            
+            // Буква
+            ctx.fillStyle = 'white';
+            ctx.font = `bold ${Math.max(16, size / 1.8)}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(label, x, y);
+        }
+        
+        function drawLeaf(x, y, label, pathNumber) {
+            // Тень
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.2)';
+            ctx.shadowBlur = 10;
+            ctx.shadowOffsetX = 2;
+            ctx.shadowOffsetY = 2;
+            
+            // Конечный узел (лист)
+            ctx.beginPath();
+            ctx.arc(x, y, 28, 0, 2 * Math.PI);
+            
+            // Градиент для листа
+            const gradient = ctx.createRadialGradient(x - 8, y - 8, 5, x, y, 28);
+            gradient.addColorStop(0, '#2ecc71');
+            gradient.addColorStop(1, '#27ae60');
+            ctx.fillStyle = gradient;
+            ctx.fill();
+            
+            // Сброс тени
+            ctx.shadowColor = 'transparent';
+            ctx.shadowBlur = 0;
+            ctx.shadowOffsetX = 0;
+            ctx.shadowOffsetY = 0;
+            
+            // Обводка
+            ctx.strokeStyle = '#27ae60';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+            
+            // Буква
+            ctx.fillStyle = 'white';
+            ctx.font = 'bold 20px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(label, x, y);
+            
+            // Номер пути под узлом
+            if (pathNumber) {
+                ctx.fillStyle = '#2c3e50';
+                ctx.font = 'bold 16px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(pathNumber, x, y + 42);
+            }
+        }
+        
+        // Отображаем список путей
+        function displayPathsList() {
+            const listDiv = document.getElementById('pathsList');
+            const countDiv = document.getElementById('totalCount');
+            const pathCountSpan = document.getElementById('pathCount');
+            
+            countDiv.textContent = paths.length;
+            pathCountSpan.textContent = paths.length;
+            
+            listDiv.innerHTML = paths.map((path, i) => `
+                <div class="path-item">
+                    <strong>${i + 1}.</strong> ${path.join(' → ')}
+                </div>
+            `).join('');
+        }
+        
+        loadData();
+        displayPathsList();
+        resizeCanvas();
+    </script>
+</body>
+</html>

@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Построитель дерева путей</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 30px;
+        }
+        
+        .header h1 { font-size: 24px; }
+        
+        .container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+        
+        .sidebar {
+            width: 320px;
+            background: white;
+            border-right: 2px solid #ddd;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        
+        .main-area {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            background: #e9ecef;
+            overflow: auto;
+        }
+        
+        canvas {
+            display: block;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            cursor: crosshair;
+            background: white;
+        }
+        
+        .section {
+            margin-bottom: 20px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .section h3 {
+            margin-bottom: 12px;
+            color: #333;
+        }
+        
+        button {
+            width: 100%;
+            padding: 12px;
+            margin: 6px 0;
+            border: 2px solid #667eea;
+            background: white;
+            color: #667eea;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+        
+        button:hover {
+            background: #667eea;
+            color: white;
+        }
+        
+        button.active {
+            background: #667eea;
+            color: white;
+        }
+        
+        button.success {
+            border-color: #27ae60;
+            color: #27ae60;
+        }
+        
+        button.success:hover {
+            background: #27ae60;
+            color: white;
+        }
+        
+        input[type="text"], input[type="file"] {
+            width: 100%;
+            padding: 10px;
+            margin: 6px 0;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+        }
+        
+        .info {
+            background: #e8f4f8;
+            padding: 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            color: #555;
+            margin: 10px 0;
+        }
+        
+        #nodesList {
+            max-height: 200px;
+            overflow-y: auto;
+            font-size: 13px;
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 6px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🌳 Построитель дерева путей из изображения</h1>
+        <p>Загрузите схему графа → Отметьте точки → Постройте дерево путей</p>
+    </div>
+    
+    <div class="container">
+        <div class="sidebar">
+            <div class="section">
+                <h3>📁 Шаг 1: Загрузите схему</h3>
+                <input type="file" id="imageInput" accept="image/*" onchange="loadImage(event)">
+                <div class="info">
+                    Загрузите изображение с графом (схему задачи ОГЭ)
+                </div>
+            </div>
+            
+            <div class="section">
+                <h3>🎨 Шаг 2: Режим работы</h3>
+                <button id="nodeBtn" class="active" onclick="setMode('node')">➕ Добавить вершину</button>
+                <button id="edgeBtn" onclick="setMode('edge')">↗️ Добавить ребро</button>
+                <button onclick="setMode('delete')">🗑️ Удалить</button>
+            </div>
+            
+            <div class="section">
+                <h3>📊 Вершины</h3>
+                <div id="nodesList">Пока нет вершин</div>
+            </div>
+            
+            <div class="section">
+                <h3>🌳 Шаг 3: Построить дерево</h3>
+                <input type="text" id="startNode" placeholder="Начальная вершина (A)">
+                <input type="text" id="endNode" placeholder="Конечная вершина (H)">
+                <button class="success" onclick="buildTree()">🌳 Построить дерево путей</button>
+            </div>
+            
+            <div class="section">
+                <h3>💾 Экспорт</h3>
+                <button onclick="exportJSON()">Экспорт JSON</button>
+                <button onclick="clearAll()">🗑️ Очистить всё</button>
+            </div>
+        </div>
+        
+        <div class="main-area">
+            <canvas id="canvas"></canvas>
+        </div>
+    </div>
+    
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        let sourceImage = null;
+        let nodes = [];
+        let edges = [];
+        let mode = 'node';
+        let selectedNode = null;
+        let nextLetter = 65; // A
+        
+        function loadImage(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    sourceImage = img;
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    draw();
+                    console.log('Изображение загружено:', img.width, 'x', img.height);
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+        
+        function setMode(newMode) {
+            mode = newMode;
+            selectedNode = null;
+            
+            document.querySelectorAll('.sidebar button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            if (newMode === 'node') {
+                document.getElementById('nodeBtn').classList.add('active');
+            } else if (newMode === 'edge') {
+                document.getElementById('edgeBtn').classList.add('active');
+            }
+            
+            draw();
+        }
+        
+        canvas.addEventListener('click', (e) => {
+            if (!sourceImage) {
+                alert('Сначала загрузите изображение!');
+                return;
+            }
+            
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            if (mode === 'node') {
+                addNode(x, y);
+            } else if (mode === 'edge') {
+                const node = getNodeAt(x, y);
+                if (node) {
+                    if (!selectedNode) {
+                        selectedNode = node;
+                        draw();
+                    } else {
+                        addEdge(selectedNode, node);
+                        selectedNode = null;
+                    }
+                }
+            } else if (mode === 'delete') {
+                deleteAt(x, y);
+            }
+        });
+        
+        function addNode(x, y) {
+            const label = String.fromCharCode(nextLetter++);
+            nodes.push({ x, y, label });
+            updateNodesList();
+            draw();
+        }
+        
+        function addEdge(from, to) {
+            if (from !== to && !edges.find(e => e.from === from && e.to === to)) {
+                edges.push({ from, to });
+                draw();
+            }
+        }
+        
+        function getNodeAt(x, y) {
+            return nodes.find(node => {
+                const dx = node.x - x;
+                const dy = node.y - y;
+                return Math.sqrt(dx * dx + dy * dy) < 20;
+            });
+        }
+        
+        function deleteAt(x, y) {
+            const node = getNodeAt(x, y);
+            if (node) {
+                nodes = nodes.filter(n => n !== node);
+                edges = edges.filter(e => e.from !== node && e.to !== node);
+                updateNodesList();
+                draw();
+            }
+        }
+        
+        function clearAll() {
+            if (confirm('Очистить всё?')) {
+                nodes = [];
+                edges = [];
+                selectedNode = null;
+                nextLetter = 65;
+                updateNodesList();
+                draw();
+            }
+        }
+        
+        function updateNodesList() {
+            const list = document.getElementById('nodesList');
+            if (nodes.length === 0) {
+                list.textContent = 'Пока нет вершин';
+            } else {
+                list.innerHTML = nodes.map(n => `<div>${n.label}: (${Math.round(n.x)}, ${Math.round(n.y)})</div>`).join('');
+            }
+        }
+        
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Рисуем исходное изображение
+            if (sourceImage) {
+                ctx.drawImage(sourceImage, 0, 0);
+            }
+            
+            // Рисуем рёбра
+            edges.forEach(edge => {
+                drawArrow(edge.from.x, edge.from.y, edge.to.x, edge.to.y, '#FF1744', 3);
+            });
+            
+            // Рисуем вершины
+            nodes.forEach(node => {
+                const isSelected = node === selectedNode;
+                ctx.beginPath();
+                ctx.arc(node.x, node.y, 15, 0, 2 * Math.PI);
+                ctx.fillStyle = isSelected ? '#FFA500' : 'rgba(255,255,255,0.9)';
+                ctx.fill();
+                ctx.strokeStyle = isSelected ? '#FF8C00' : '#667eea';
+                ctx.lineWidth = isSelected ? 4 : 3;
+                ctx.stroke();
+                
+                ctx.fillStyle = '#333';
+                ctx.font = 'bold 14px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(node.label, node.x, node.y);
+            });
+        }
+        
+        function drawArrow(x1, y1, x2, y2, color, width) {
+            const headlen = 15;
+            const angle = Math.atan2(y2 - y1, x2 - x1);
+            
+            const startX = x1 + 15 * Math.cos(angle);
+            const startY = y1 + 15 * Math.sin(angle);
+            const endX = x2 - 15 * Math.cos(angle);
+            const endY = y2 - 15 * Math.sin(angle);
+            
+            ctx.beginPath();
+            ctx.moveTo(startX, startY);
+            ctx.lineTo(endX, endY);
+            ctx.strokeStyle = color;
+            ctx.lineWidth = width;
+            ctx.stroke();
+            
+            ctx.beginPath();
+            ctx.moveTo(endX, endY);
+            ctx.lineTo(endX - headlen * Math.cos(angle - Math.PI / 6), 
+                       endY - headlen * Math.sin(angle - Math.PI / 6));
+            ctx.moveTo(endX, endY);
+            ctx.lineTo(endX - headlen * Math.cos(angle + Math.PI / 6), 
+                       endY - headlen * Math.sin(angle + Math.PI / 6));
+            ctx.stroke();
+        }
+        
+        function exportJSON() {
+            if (nodes.length === 0) {
+                alert('Сначала добавьте вершины!');
+                return;
+            }
+            
+            const data = {
+                nodes: nodes.map(n => ({ label: n.label, x: n.x, y: n.y })),
+                edges: edges.map(e => ({ from: e.from.label, to: e.to.label }))
+            };
+            
+            const json = JSON.stringify(data, null, 2);
+            const blob = new Blob([json], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'graph.json';
+            a.click();
+        }
+        
+        function buildTree() {
+            if (nodes.length === 0) {
+                alert('Сначала создайте граф!');
+                return;
+            }
+            
+            const startNode = document.getElementById('startNode').value.trim() || nodes[0].label;
+            const endNode = document.getElementById('endNode').value.trim() || nodes[nodes.length - 1].label;
+            
+            const graphData = {
+                nodes: nodes.map(n => ({ label: n.label, x: n.x, y: n.y })),
+                edges: edges.map(e => ({ from: e.from.label, to: e.to.label }))
+            };
+            
+            // Сохраняем в localStorage для передачи на страницу дерева
+            localStorage.setItem('treeGraphData', JSON.stringify({
+                graph: graphData,
+                start: startNode,
+                end: endNode
+            }));
+            
+            // Открываем страницу дерева путей
+            window.open('paths_tree.html', '_blank');
+        }
+    </script>
+</body>
+</html>

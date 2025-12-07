@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Метод ДП - Дерево вниз головой</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+        
+        .container {
+            display: flex;
+            gap: 20px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .graph-area {
+            flex: 2;
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        }
+        
+        .sidebar {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .panel {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        }
+        
+        .panel h3 {
+            margin-bottom: 15px;
+            color: #333;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+        
+        canvas {
+            display: block;
+            width: 100%;
+            height: 600px;
+            border: 2px solid #eee;
+            border-radius: 10px;
+        }
+        
+        button {
+            padding: 12px 24px;
+            margin: 5px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        button.primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        button.primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+        }
+        
+        button.secondary {
+            background: #27ae60;
+            color: white;
+        }
+        
+        button.secondary:hover {
+            background: #229954;
+        }
+        
+        .dp-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        
+        .dp-table th, .dp-table td {
+            padding: 10px;
+            border: 1px solid #ddd;
+            text-align: center;
+        }
+        
+        .dp-table th {
+            background: #667eea;
+            color: white;
+        }
+        
+        .dp-table tr.current {
+            background: #fff3cd;
+            font-weight: bold;
+        }
+        
+        .dp-table tr.completed {
+            background: #d4edda;
+        }
+        
+        .formula {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            margin: 10px 0;
+            border-left: 4px solid #667eea;
+        }
+        
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
+        .info-box {
+            background: #e8f4f8;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🌳 Метод динамического программирования</h1>
+        <p>Подсчёт путей в графе: "Дерево вниз головой"</p>
+    </div>
+    
+    <div class="container">
+        <div class="graph-area">
+            <canvas id="canvas"></canvas>
+            <div class="controls">
+                <button class="secondary" onclick="startAnimation()">▶️ Запустить анимацию</button>
+                <button class="primary" onclick="stepForward()">➡️ Следующий шаг</button>
+                <button class="primary" onclick="reset()">🔄 Сброс</button>
+            </div>
+        </div>
+        
+        <div class="sidebar">
+            <div class="panel">
+                <h3>📊 Таблица динамики</h3>
+                <table class="dp-table" id="dpTable">
+                    <thead>
+                        <tr>
+                            <th>Вершина</th>
+                            <th>Кол-во путей</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody"></tbody>
+                </table>
+            </div>
+            
+            <div class="panel">
+                <h3>🧮 Текущее вычисление</h3>
+                <div id="formulaBox" class="formula">
+                    Нажмите "Запустить анимацию"
+                </div>
+            </div>
+            
+            <div class="panel">
+                <h3>ℹ️ Алгоритм</h3>
+                <div class="info-box">
+                    <strong>Метод ДП для DAG:</strong><br><br>
+                    1. Начальная вершина = 1 путь<br>
+                    2. Для каждой следующей вершины:<br>
+                    &nbsp;&nbsp;&nbsp;Пути = СУММА путей из всех входящих рёбер<br>
+                    3. Конечная вершина = итог
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Граф для примера (DAG - A to H)
+        const graph = {
+            nodes: [
+                {id: 'A', x: 400, y: 50, level: 0},
+                {id: 'B', x: 200, y: 150, level: 1},
+                {id: 'C', x: 400, y: 150, level: 1},
+                {id: 'D', x: 600, y: 150, level: 1},
+                {id: 'E', x: 250, y: 250, level: 2},
+                {id: 'F', x: 500, y: 250, level: 2},
+                {id: 'G', x: 400, y: 350, level: 3},
+                {id: 'H', x: 400, y: 450, level: 4}
+            ],
+            edges: [
+                {from: 'A', to: 'B'},
+                {from: 'A', to: 'C'},
+                {from: 'A', to: 'D'},
+                {from: 'B', to: 'E'},
+                {from: 'C', to: 'E'},
+                {from: 'C', to: 'F'},
+                {from: 'D', to: 'F'},
+                {from: 'E', to: 'G'},
+                {from: 'F', to: 'G'},
+                {from: 'E', to: 'H'},
+                {from: 'F', to: 'H'},
+                {from: 'G', to: 'H'}
+            ]
+        };
+        
+        let dpValues = {};  // Значения ДП для каждой вершины
+        let currentStep = 0;
+        let sortedNodes = [];
+        let animationInterval = null;
+        
+        function resizeCanvas() {
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+            draw();
+        }
+        
+        window.addEventListener('resize', resizeCanvas);
+        setTimeout(resizeCanvas, 100);
+        
+        function topologicalSort() {
+            // Топологическая сортировка (по уровням)
+            return graph.nodes.slice().sort((a, b) => a.level - b.level);
+        }
+        
+        function reset() {
+            currentStep = 0;
+            dpValues = {};
+            sortedNodes = topologicalSort();
+            dpValues[sortedNodes[0].id] = 1; // A = 1
+            
+            if (animationInterval) {
+                clearInterval(animationInterval);
+                animationInterval = null;
+            }
+            
+            updateTable();
+            updateFormula();
+            draw();
+        }
+        
+        function stepForward() {
+            if (currentStep >= sortedNodes.length - 1) return;
+            
+            currentStep++;
+            const node = sortedNodes[currentStep];
+            
+            // Вычисляем ДП значение
+            calculateDP(node.id);
+            updateTable();
+            updateFormula();
+            draw();
+        }
+        
+        function calculateDP(nodeId) {
+            let sum = 0;
+            const incoming = graph.edges.filter(e => e.to === nodeId);
+            
+            incoming.forEach(edge => {
+                if (dpValues[edge.from] !== undefined) {
+                    sum += dpValues[edge.from];
+                }
+            });
+            
+            dpValues[nodeId] = sum || 0;
+        }
+        
+        function updateTable() {
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = '';
+            
+            sortedNodes.forEach((node, index) => {
+                const tr = document.createElement('tr');
+                const value = dpValues[node.id];
+                
+                if (index === currentStep) {
+                    tr.className = 'current';
+                } else if (index < currentStep) {
+                    tr.className = 'completed';
+                }
+                
+                tr.innerHTML = `
+                    <td><strong>${node.id}</strong></td>
+                    <td>${value !== undefined ? value : '-'}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+        
+        function updateFormula() {
+            const formulaBox = document.getElementById('formulaBox');
+            
+            if (currentStep === 0) {
+                formulaBox.innerHTML = `<strong>${sortedNodes[0].id} = 1</strong> (начальная вершина)`;
+                return;
+            }
+            
+            const node = sortedNodes[currentStep];
+            const incoming = graph.edges.filter(e => e.to === node.id);
+            
+            if (incoming.length === 0) {
+                formulaBox.innerHTML = `<strong>${node.id} = 0</strong> (нет входящих рёбер)`;
+                return;
+            }
+            
+            const parts = incoming.map(e => {
+                const val = dpValues[e.from] || 0;
+                return `${e.from}(${val})`;
+            });
+            
+            const sum = dpValues[node.id] || 0;
+            formulaBox.innerHTML = `
+                <strong>${node.id} = ${parts.join(' + ')}</strong><br>
+                <strong>${node.id} = ${sum}</strong>
+            `;
+        }
+        
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Рисуем рёбра
+            graph.edges.forEach(edge => {
+                const from = graph.nodes.find(n => n.id === edge.from);
+                const to = graph.nodes.find(n => n.id === edge.to);
+                
+                drawArrow(from.x, from.y, to.x, to.y, '#ddd', 2);
+            });
+            
+            // Рисуем вершины
+            graph.nodes.forEach((node, index) => {
+                const isCompleted = index < currentStep;
+                const isCurrent = index === currentStep;
+                const value = dpValues[node.id];
+                
+                let color = '#f0f0f0';
+                if (isCurrent) color = '#fff3cd';
+                if (isCompleted) color = '#d4edda';
+                
+                drawNode(node.x, node.y, node.id, value, color, isCurrent);
+            });
+        }
+        
+        function drawNode(x, y, label, value, bgColor, isCurrent) {
+            // Круг вершины
+            ctx.beginPath();
+            ctx.arc(x, y, 30, 0, 2 * Math.PI);
+            ctx.fillStyle = bgColor;
+            ctx.fill();
+            ctx.strokeStyle = isCurrent ? '#ff8c00' : '#667eea';
+            ctx.lineWidth = isCurrent ? 4 : 2;
+            ctx.stroke();
+            
+            // Буква вершины
+            ctx.fillStyle = '#333';
+            ctx.font = 'bold 20px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(label, x, y);
+            
+            // Значение ДП
+            if (value !== undefined) {
+                ctx.beginPath();
+                ctx.arc(x + 25, y - 25, 18, 0, 2 * Math.PI);
+                ctx.fillStyle = '#667eea';
+                ctx.fill();
+                
+                ctx.fillStyle = 'white';
+                ctx.font = 'bold 16px Arial';
+                ctx.fillText(value, x + 25, y - 25);
+            }
+        }
+        
+        function drawArrow(x1, y1, x2, y2, color, width) {
+            const angle = Math.atan2(y2 - y1, x2 - x1);
+            const headlen = 10;
+            
+            // Укорачиваем линию чтобы не заходила в круги
+            const startX = x1 + 30 * Math.cos(angle);
+            const startY = y1 + 30 * Math.sin(angle);
+            const endX = x2 - 30 * Math.cos(angle);
+            const endY = y2 - 30 * Math.sin(angle);
+            
+            ctx.beginPath();
+            ctx.moveTo(startX, startY);
+            ctx.lineTo(endX, endY);
+            ctx.strokeStyle = color;
+            ctx.lineWidth = width;
+            ctx.stroke();
+            
+            // Стрелка
+            ctx.beginPath();
+            ctx.moveTo(endX, endY);
+            ctx.lineTo(endX - headlen * Math.cos(angle - Math.PI / 6), 
+                       endY - headlen * Math.sin(angle - Math.PI / 6));
+            ctx.moveTo(endX, endY);
+            ctx.lineTo(endX - headlen * Math.cos(angle + Math.PI / 6), 
+                       endY - headlen * Math.sin(angle + Math.PI / 6));
+            ctx.stroke();
+        }
+        
+        function startAnimation() {
+            reset();
+            
+            if (animationInterval) {
+                clearInterval(animationInterval);
+            }
+            
+            animationInterval = setInterval(() => {
+                if (currentStep >= sortedNodes.length - 1) {
+                    clearInterval(animationInterval);
+                    animationInterval = null;
+                    return;
+                }
+                stepForward();
+            }, 1500);
+        }
+        
+        // Инициализация
+        reset();
+    </script>
+</body>
+</html>
