@@ -159,12 +159,21 @@
     <div class="container">
         <div class="graph-area">
             <div style="margin-bottom: 15px; padding: 15px; background: #e8f4f8; border-radius: 8px;">
-                <strong>📝 Задание:</strong> Найти длину кратчайшего пути между пунктами A и D
+                <strong>📝 Задание:</strong> Найти длину кратчайшего пути между пунктами A и D<br>
+                <small>Загрузите изображение с таблицей для справки, затем нарисуйте граф на canvas</small>
             </div>
             
-            <input type="file" id="imageInput" accept="image/*" style="margin-bottom: 10px;">
-            
-            <canvas id="canvas"></canvas>
+            <div style="display: flex; gap: 15px; margin-bottom: 15px;">
+                <div style="flex: 1;">
+                    <h4 style="margin-bottom: 10px;">🖼️ Таблица (для справки)</h4>
+                    <input type="file" id="imageInput" accept="image/*" style="margin-bottom: 10px; width: 100%;">
+                    <img id="referenceImage" style="max-width: 100%; max-height: 300px; border: 2px solid #ddd; border-radius: 8px; display: none;">
+                </div>
+                <div style="flex: 1;">
+                    <h4 style="margin-bottom: 10px;">✏️ Ваш граф</h4>
+                    <canvas id="canvas" style="border: 2px solid #667eea;"></canvas>
+                </div>
+            </div>
             
             <div class="controls">
                 <button class="primary" onclick="setMode('node')" id="nodeModeBtn">➕ Добавить вершину</button>
@@ -241,9 +250,9 @@
         let shownNodes = new Set();
         
         function resizeCanvas() {
-            const rect = canvas.getBoundingClientRect();
-            canvas.width = rect.width;
-            canvas.height = rect.height;
+            // Фиксированный размер canvas
+            canvas.width = 400;
+            canvas.height = 300;
             draw();
         }
         
@@ -418,20 +427,27 @@
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
                 
                 if (!dpMode) {
-                    // Режим редактирования
-                    if (sourceImage) {
-                        ctx.drawImage(sourceImage, 0, 0);
-                    }
+                    // Режим редактирования - рисуем только граф
+                    // Изображение показывается отдельно в <img>
                     
                     edges.forEach(edge => {
                         drawArrow(edge.from.x, edge.from.y, edge.to.x, edge.to.y, '#667eea', 3);
                         
-                        // Показываем вес ребра
+                        // Показываем вес ребра в белом кружке
                         if (edge.weight) {
                             const midX = (edge.from.x + edge.to.x) / 2;
                             const midY = (edge.from.y + edge.to.y) / 2;
-                            ctx.fillStyle = '#ff6b6b';
-                            ctx.font = 'bold 16px Arial';
+                            
+                            ctx.beginPath();
+                            ctx.arc(midX, midY, 15, 0, 2 * Math.PI);
+                            ctx.fillStyle = 'white';
+                            ctx.fill();
+                            ctx.strokeStyle = '#667eea';
+                            ctx.lineWidth = 2;
+                            ctx.stroke();
+                            
+                            ctx.fillStyle = '#667eea';
+                            ctx.font = 'bold 14px Arial';
                             ctx.textAlign = 'center';
                             ctx.textBaseline = 'middle';
                             ctx.fillText(edge.weight, midX, midY);
@@ -613,20 +629,15 @@
             }, 1500);
         }
         
-        // Загрузка изображения
+        // Загрузка изображения - показываем в <img>, не на canvas
         document.getElementById('imageInput').addEventListener('change', function(e) {
             const file = e.target.files[0];
             if (file) {
                 const reader = new FileReader();
                 reader.onload = function(e) {
-                    const img = new Image();
-                    img.onload = function() {
-                        sourceImage = img;
-                        canvas.width = img.width;
-                        canvas.height = img.height;
-                        draw();
-                    };
-                    img.src = e.target.result;
+                    const refImg = document.getElementById('referenceImage');
+                    refImg.src = e.target.result;
+                    refImg.style.display = 'block';
                 };
                 reader.readAsDataURL(file);
             }
