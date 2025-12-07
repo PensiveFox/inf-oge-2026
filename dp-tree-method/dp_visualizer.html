@@ -158,8 +158,18 @@
     
     <div class="container">
         <div class="graph-area">
+            <div style="margin-bottom: 15px; padding: 15px; background: #e8f4f8; border-radius: 8px;">
+                <h3 style="margin: 0 0 10px 0; color: #333;">📁 Шаг 1: Загрузите изображение графа</h3>
+                <input type="file" id="imageInput" accept="image/*" onchange="loadImage(event)" style="padding: 10px; width: 100%; border: 2px solid #667eea; border-radius: 6px;">
+                <div style="margin-top: 10px; display: flex; gap: 10px;">
+                    <button class="primary" onclick="setMode('node')" id="nodeModeBtn">➕ Добавить вершину</button>
+                    <button class="primary" onclick="setMode('edge')" id="edgeModeBtn">↔️ Добавить ребро</button>
+                    <button class="secondary" onclick="clearGraph()">🗑️ Очистить граф</button>
+                </div>
+            </div>
             <canvas id="canvas"></canvas>
             <div class="controls">
+                <button class="secondary" onclick="buildDPGraph()">🔨 Построить ДП-граф</button>
                 <button class="secondary" onclick="startAnimation()">▶️ Запустить анимацию</button>
                 <button class="primary" onclick="stepForward()">➡️ Следующий шаг</button>
                 <button class="primary" onclick="reset()">🔄 Сброс</button>
@@ -204,32 +214,18 @@
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
         
-        // Граф для примера (DAG - A to H)
-        const graph = {
-            nodes: [
-                {id: 'A', x: 400, y: 50, level: 0},
-                {id: 'B', x: 200, y: 150, level: 1},
-                {id: 'C', x: 400, y: 150, level: 1},
-                {id: 'D', x: 600, y: 150, level: 1},
-                {id: 'E', x: 250, y: 250, level: 2},
-                {id: 'F', x: 500, y: 250, level: 2},
-                {id: 'G', x: 400, y: 350, level: 3},
-                {id: 'H', x: 400, y: 450, level: 4}
-            ],
-            edges: [
-                {from: 'A', to: 'B'},
-                {from: 'A', to: 'C'},
-                {from: 'A', to: 'D'},
-                {from: 'B', to: 'E'},
-                {from: 'C', to: 'E'},
-                {from: 'C', to: 'F'},
-                {from: 'D', to: 'F'},
-                {from: 'E', to: 'G'},
-                {from: 'F', to: 'G'},
-                {from: 'E', to: 'H'},
-                {from: 'F', to: 'H'},
-                {from: 'G', to: 'H'}
-            ]
+        let sourceImage = null;
+        let nodes = [];
+        let edges = [];
+        let mode = 'node';
+        let selectedNode = null;
+        let nextLetter = 65; // A
+        let dpMode = false; // Режим ДП-визуализации
+        
+        // Граф для ДП (будет создан из отмеченных вершин)
+        let graph = {
+            nodes: [],
+            edges: []
         };
         
         let dpValues = {};  // Значения ДП для каждой вершины
@@ -347,26 +343,58 @@
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             
-            // Рисуем рёбра
-            graph.edges.forEach(edge => {
-                const from = graph.nodes.find(n => n.id === edge.from);
-                const to = graph.nodes.find(n => n.id === edge.to);
+            if (!dpMode) {
+                // Режим редактирования: рисуем изображение с отметками
+                if (sourceImage) {
+                    ctx.drawImage(sourceImage, 0, 0);
+                }
                 
-                drawArrow(from.x, from.y, to.x, to.y, '#ddd', 2);
-            });
-            
-            // Рисуем вершины
-            graph.nodes.forEach((node, index) => {
-                const isCompleted = index < currentStep;
-                const isCurrent = index === currentStep;
-                const value = dpValues[node.id];
+                // Рисуем рёбра
+                edges.forEach(edge => {
+                    drawArrow(edge.from.x, edge.from.y, edge.to.x, edge.to.y, '#667eea', 3);
+                });
                 
-                let color = '#f0f0f0';
-                if (isCurrent) color = '#fff3cd';
-                if (isCompleted) color = '#d4edda';
+                // Рисуем вершины
+                nodes.forEach(node => {
+                    const isSelected = (selectedNode === node);
+                    ctx.beginPath();
+                    ctx.arc(node.x, node.y, 20, 0, 2 * Math.PI);
+                    ctx.fillStyle = isSelected ? '#ff6b6b' : '#667eea';
+                    ctx.fill();
+                    ctx.strokeStyle = 'white';
+                    ctx.lineWidth = 3;
+                    ctx.stroke();
+                    
+                    ctx.fillStyle = 'white';
+                    ctx.font = 'bold 16px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(node.label, node.x, node.y);
+                });
+            } else {
+                // Режим ДП-визуализации
+                // Рисуем рёбра
+                graph.edges.forEach(edge => {
+                    const from = graph.nodes.find(n => n.id === edge.from);
+                    const to = graph.nodes.find(n => n.id === edge.to);
+                    if (from && to) {
+                        drawArrow(from.x, from.y, to.x, to.y, '#ddd', 2);
+                    }
+                });
                 
-                drawNode(node.x, node.y, node.id, value, color, isCurrent);
-            });
+                // Рисуем вершины
+                graph.nodes.forEach((node, index) => {
+                    const isCompleted = index < currentStep;
+                    const isCurrent = index === currentStep;
+                    const value = dpValues[node.id];
+                    
+                    let color = '#f0f0f0';
+                    if (isCurrent) color = '#fff3cd';
+                    if (isCompleted) color = '#d4edda';
+                    
+                    drawNode(node.x, node.y, node.id, value, color, isCurrent);
+                });
+            }
         }
         
         function drawNode(x, y, label, value, bgColor, isCurrent) {
@@ -444,8 +472,158 @@
             }, 1500);
         }
         
+        // Загрузка изображения
+        function loadImage(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    sourceImage = img;
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    draw();
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+        
+        // Переключение режимов
+        function setMode(newMode) {
+            mode = newMode;
+            selectedNode = null;
+            
+            document.getElementById('nodeModeBtn').style.background = (mode === 'node') ? '#667eea' : '#ccc';
+            document.getElementById('edgeModeBtn').style.background = (mode === 'edge') ? '#667eea' : '#ccc';
+        }
+        
+        // Обработка кликов на canvas
+        canvas.addEventListener('click', (e) => {
+            if (dpMode) return; // В режиме ДП не добавляем вершины
+            if (!sourceImage) {
+                alert('Сначала загрузите изображение!');
+                return;
+            }
+            
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            if (mode === 'node') {
+                addNode(x, y);
+            } else if (mode === 'edge') {
+                const node = getNodeAt(x, y);
+                if (node) {
+                    if (!selectedNode) {
+                        selectedNode = node;
+                    } else if (selectedNode !== node) {
+                        addEdge(selectedNode, node);
+                        selectedNode = null;
+                    }
+                }
+            }
+        });
+        
+        function addNode(x, y) {
+            const label = String.fromCharCode(nextLetter++);
+            nodes.push({ label, x, y });
+            draw();
+        }
+        
+        function addEdge(from, to) {
+            edges.push({ from, to });
+            draw();
+        }
+        
+        function getNodeAt(x, y) {
+            return nodes.find(n => Math.hypot(n.x - x, n.y - y) < 20);
+        }
+        
+        function clearGraph() {
+            if (confirm('Очистить граф?')) {
+                nodes = [];
+                edges = [];
+                selectedNode = null;
+                nextLetter = 65;
+                dpMode = false;
+                draw();
+            }
+        }
+        
+        // Построение ДП-графа из отмеченных вершин
+        function buildDPGraph() {
+            if (nodes.length === 0) {
+                alert('Добавьте вершины!');
+                return;
+            }
+            
+            // Преобразуем отмеченные вершины в граф для ДП
+            graph.nodes = nodes.map((n, index) => ({
+                id: n.label,
+                x: n.x,
+                y: n.y,
+                level: index // Временно, будет пересчитано
+            }));
+            
+            graph.edges = edges.map(e => ({
+                from: e.from.label,
+                to: e.to.label
+            }));
+            
+            // Рассчитываем уровни (топологическая сортировка)
+            calculateLevels();
+            
+            dpMode = true;
+            reset();
+            alert('ДП-граф построен! Теперь можно запустить анимацию.');
+        }
+        
+        function calculateLevels() {
+            // Простой алгоритм: уровень = максимальный уровень входящих + 1
+            const levels = {};
+            const inDegree = {};
+            
+            // Инициализация
+            graph.nodes.forEach(node => {
+                levels[node.id] = 0;
+                inDegree[node.id] = 0;
+            });
+            
+            // Подсчет входящих рёбер
+            graph.edges.forEach(edge => {
+                inDegree[edge.to]++;
+            });
+            
+            // Находим начальные вершины (без входящих рёбер)
+            let queue = graph.nodes.filter(n => inDegree[n.id] === 0).map(n => n.id);
+            
+            while (queue.length > 0) {
+                const current = queue.shift();
+                const outgoing = graph.edges.filter(e => e.from === current);
+                
+                outgoing.forEach(edge => {
+                    levels[edge.to] = Math.max(levels[edge.to], levels[current] + 1);
+                    inDegree[edge.to]--;
+                    if (inDegree[edge.to] === 0) {
+                        queue.push(edge.to);
+                    }
+                });
+            }
+            
+            // Применяем уровни
+            graph.nodes.forEach(node => {
+                node.level = levels[node.id];
+            });
+        }
+        
         // Инициализация
-        reset();
+        if (graph.nodes.length > 0) {
+            dpMode = true;
+            reset();
+        }
     </script>
 </body>
 </html>
