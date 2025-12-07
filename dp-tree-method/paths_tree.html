@@ -39,7 +39,7 @@
         }
         
         .canvas-container {
-            flex: 2;
+            flex: 1;
             background: white;
             border-radius: 12px;
             padding: 20px;
@@ -47,17 +47,101 @@
             display: flex;
             flex-direction: column;
             overflow: hidden;
+            position: relative;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            justify-content: center;
+        }
+        
+        .controls button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5568d3;
+        }
+        
+        .btn-secondary {
+            background: #27ae60;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #229954;
+        }
+        
+        .btn-reset {
+            background: #e74c3c;
+            color: white;
+        }
+        
+        .btn-reset:hover {
+            background: #c0392b;
         }
         
         .sidebar {
-            flex: 0 0 380px;
+            flex: 0 0 16.666%;
             background: white;
             border-radius: 12px;
-            padding: 20px;
+            padding: 15px;
             box-shadow: 0 10px 40px rgba(0,0,0,0.3);
             overflow-y: auto;
             display: flex;
             flex-direction: column;
+        }
+        
+        .source-image-overlay {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            width: 33.333%;
+            height: 50%;
+            background: white;
+            border: 3px solid #667eea;
+            border-radius: 12px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+            z-index: 10;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .source-image-overlay h3 {
+            margin: 0 0 8px 0;
+            color: #2c3e50;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        
+        .source-image-wrapper {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            background: #f8f9fa;
+        }
+        
+        .source-image-wrapper img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
         }
         
         canvas {
@@ -163,6 +247,20 @@
     
     <div class="main-container">
         <div class="canvas-container">
+            <div class="controls">
+                <button class="btn-primary" id="btnStart" onclick="startAnimation()">▶️ Запустить построение</button>
+                <button class="btn-secondary" id="btnPause" onclick="pauseAnimation()" disabled>⏸️ Пауза</button>
+                <button class="btn-reset" id="btnReset" onclick="resetAnimation()">🔄 Сброс</button>
+            </div>
+            
+            <!-- Исходное изображение поверх canvas -->
+            <div class="source-image-overlay" id="sourceImageOverlay">
+                <h3>📊 Исходный граф</h3>
+                <div class="source-image-wrapper" id="sourceImageWrapper">
+                    <p style="color: #999; font-size: 12px; text-align: center; padding: 10px;">Изображение графа</p>
+                </div>
+            </div>
+            
             <canvas id="canvas"></canvas>
         </div>
         
@@ -212,6 +310,15 @@
         let paths = [];
         let startNode = 'A';
         let endNode = 'H';
+        let sourceImage = null;
+        let animationInterval = null;
+        let treeNodes = [];
+        let animationSequence = []; // Последовательность узлов для анимации
+        let isAnimating = false;
+        let isPaused = false;
+        let currentLevel = 0; // Текущий уровень глубины
+        let maxPathLength = 0; // Максимальная длина пути
+        let currentNodeIndexInLevel = 0; // Индекс узла в текущем уровне
         
         // Загружаем данные из localStorage или используем пример
         function loadData() {
@@ -225,6 +332,12 @@
                 
                 // Находим все пути
                 paths = findAllPaths(graph, startNode, endNode);
+                
+                // Загружаем исходное изображение если есть
+                const savedImage = localStorage.getItem('sourceGraphImage');
+                if (savedImage) {
+                    displaySourceImage(savedImage);
+                }
                 
                 console.log('Загружены данные из редактора');
                 console.log('Найдено путей:', paths.length);
@@ -242,6 +355,19 @@
                 ];
                 console.log('Используется пример по умолчанию');
             }
+        }
+        
+        // Отображаем исходное изображение
+        function displaySourceImage(imageDataUrl) {
+            const wrapper = document.getElementById('sourceImageWrapper');
+            wrapper.innerHTML = '';
+            
+            const img = document.createElement('img');
+            img.src = imageDataUrl;
+            img.onload = function() {
+                sourceImage = img;
+            };
+            wrapper.appendChild(img);
         }
         
         // Поиск всех путей (DFS)
@@ -282,13 +408,12 @@
         }
         
         // Вычисляем позиции для дерева
-        let treeNodes = [];
-        
         function buildTree() {
             treeNodes = [];
             const padding = 60;
-            const topPadding = 40;
+            const topPadding = 60;
             const bottomPadding = 50;
+            const rightPadding = canvas.width * 0.37; // Отступ справа для изображения
             
             // Строим дерево префиксов
             const tree = {};
@@ -382,12 +507,12 @@
                 dfsLayout(rootKey);
             }
             
-            // Центрируем всё дерево
+            // Центрируем всё дерево с учётом изображения справа
             const allNodes = Object.values(tree);
             const minTreeX = Math.min(...allNodes.map(n => n.x));
             const maxTreeX = Math.max(...allNodes.map(n => n.x));
             const treeWidth = maxTreeX - minTreeX;
-            const availableWidth = canvas.width - 2 * padding;
+            const availableWidth = canvas.width - padding - rightPadding;
             
             let scale = 1;
             let offsetX = 0;
@@ -397,8 +522,8 @@
                 scale = availableWidth / treeWidth;
                 offsetX = padding;
             } else {
-                // Центрируем
-                offsetX = (canvas.width - treeWidth) / 2;
+                // Центрируем в доступном пространстве (слева от изображения)
+                offsetX = padding + (availableWidth - treeWidth) / 2;
             }
             
             // Применяем масштабирование и смещение
@@ -654,6 +779,293 @@
         loadData();
         displayPathsList();
         resizeCanvas();
+        
+        // Запуск анимации
+        function startAnimation() {
+            if (isAnimating && !isPaused) return;
+            
+            if (!isPaused) {
+                // Начинаем сначала
+                currentLevel = 0;
+                currentNodeIndexInLevel = 0;
+                maxPathLength = Math.max(...paths.map(p => p.length));
+                buildTree(); // Строим структуру дерева
+            }
+            
+            isAnimating = true;
+            isPaused = false;
+            
+            document.getElementById('btnStart').disabled = true;
+            document.getElementById('btnPause').disabled = false;
+            
+            animationInterval = setInterval(doAnimationStep, 800);
+        }
+        
+        function pauseAnimation() {
+            isPaused = true;
+            isAnimating = false;
+            clearInterval(animationInterval);
+            
+            document.getElementById('btnStart').disabled = false;
+            document.getElementById('btnPause').disabled = true;
+            document.getElementById('btnStart').textContent = '▶️ Продолжить';
+        }
+        
+        function resetAnimation() {
+            isPaused = false;
+            isAnimating = false;
+            clearInterval(animationInterval);
+            
+            currentLevel = 0;
+            currentNodeIndexInLevel = 0;
+            
+            document.getElementById('btnStart').disabled = false;
+            document.getElementById('btnPause').disabled = true;
+            document.getElementById('btnStart').textContent = '▶️ Запустить построение';
+            
+            // Перерисовываем пустое дерево
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawSourceImageWithHighlight(null);
+        }
+        
+        function doAnimationStep() {
+            // Проверяем, закончились ли все уровни
+            if (currentLevel >= maxPathLength) {
+                pauseAnimation();
+                document.getElementById('btnStart').textContent = '✅ Готово';
+                // Рисуем финальное дерево
+                draw();
+                return;
+            }
+            
+            // Находим узлы на текущем уровне во всех путях
+            const nodesAtLevel = [];
+            paths.forEach((path, pathIndex) => {
+                if (currentLevel < path.length) {
+                    nodesAtLevel.push({
+                        node: path[currentLevel],
+                        pathIndex: pathIndex
+                    });
+                }
+            });
+            
+            // Проверяем, есть ли ещё узлы на этом уровне
+            if (currentNodeIndexInLevel >= nodesAtLevel.length) {
+                // Переходим к следующему уровню
+                currentLevel++;
+                currentNodeIndexInLevel = 0;
+                return;
+            }
+            
+            // Подсвечиваем текущий узел этого уровня
+            if (nodesAtLevel.length > 0 && currentNodeIndexInLevel < nodesAtLevel.length) {
+                drawSourceImageWithHighlight(nodesAtLevel[currentNodeIndexInLevel].node);
+            }
+            
+            // Рисуем дерево с текущим уровнем и узлом
+            drawTreeAnimatedByLevelAndNode(currentLevel, currentNodeIndexInLevel);
+            
+            // Переходим к следующему узлу на этом уровне
+            currentNodeIndexInLevel++;
+        }
+        
+        // Рисуем исходное изображение с подсветкой текущего узла
+        function drawSourceImageWithHighlight(highlightNode) {
+            const wrapper = document.getElementById('sourceImageWrapper');
+            if (!sourceImage) return;
+            
+            // Создаём временный canvas для отрисовки
+            const tempCanvas = document.createElement('canvas');
+            const tempCtx = tempCanvas.getContext('2d');
+            tempCanvas.width = sourceImage.width;
+            tempCanvas.height = sourceImage.height;
+            
+            // Рисуем исходное изображение
+            tempCtx.drawImage(sourceImage, 0, 0);
+            
+            // Подсвечиваем текущий узел
+            if (highlightNode) {
+                // Находим координаты узла из данных
+                const savedData = localStorage.getItem('treeGraphData');
+                if (savedData) {
+                    const data = JSON.parse(savedData);
+                    const nodeData = data.graph.nodes.find(n => n.label === highlightNode);
+                    if (nodeData) {
+                        // Рисуем яркий круг вокруг узла
+                        tempCtx.beginPath();
+                        tempCtx.arc(nodeData.x, nodeData.y, 25, 0, 2 * Math.PI);
+                        tempCtx.strokeStyle = '#ff6b6b';
+                        tempCtx.lineWidth = 5;
+                        tempCtx.stroke();
+                        
+                        // Анимационное кольцо
+                        tempCtx.beginPath();
+                        tempCtx.arc(nodeData.x, nodeData.y, 35, 0, 2 * Math.PI);
+                        tempCtx.strokeStyle = 'rgba(255, 107, 107, 0.3)';
+                        tempCtx.lineWidth = 3;
+                        tempCtx.stroke();
+                    }
+                }
+            }
+            
+            // Заменяем изображение
+            wrapper.innerHTML = '';
+            const img = new Image();
+            img.src = tempCanvas.toDataURL();
+            wrapper.appendChild(img);
+        }
+        
+        // Рисуем дерево с анимацией по уровням и узлам
+        function drawTreeAnimatedByLevelAndNode(maxLevel, nodeIndexInLevel) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Создаём карту узлов
+            const nodeMap = {};
+            treeNodes.forEach(node => {
+                nodeMap[node.key] = node;
+            });
+            
+            // Рисуем только те узлы и рёбра до указанного уровня включительно
+            const drawnEdges = new Set();
+            
+            // Рисуем рёбра для всех путей до maxLevel
+            for (let pi = 0; pi < paths.length; pi++) {
+                const path = paths[pi];
+                const maxNode = Math.min(maxLevel, path.length - 1);
+                
+                for (let ni = 0; ni < maxNode; ni++) {
+                    let currentKey = '';
+                    for (let k = 0; k <= ni; k++) {
+                        currentKey = currentKey ? `${currentKey}->${path[k]}` : path[k];
+                    }
+                    const node = nodeMap[currentKey];
+                    
+                    if (node && node.children && node.children.length > 0) {
+                        node.children.forEach(childKey => {
+                            const child = nodeMap[childKey];
+                            if (child) {
+                                const edgeKey = `${node.key}->${childKey}`;
+                                if (!drawnEdges.has(edgeKey)) {
+                                    // Проверяем, должно ли это ребро быть видно
+                                    let nextKey = '';
+                                    for (let k = 0; k <= ni + 1; k++) {
+                                        nextKey = nextKey ? `${nextKey}->${path[k]}` : path[k];
+                                    }
+                                    if (nextKey === childKey) {
+                                        drawnEdges.add(edgeKey);
+                                        drawEdge(node, child);
+                                    }
+                                }
+                            }
+                        });
+                    }
+                }
+            }
+            
+            // Рисуем узлы до maxLevel включительно
+            const drawnNodes = new Set(); // Отслеживаем уже нарисованные узлы
+            for (let pi = 0; pi < paths.length; pi++) {
+                const path = paths[pi];
+                const maxNode = Math.min(maxLevel + 1, path.length);
+                
+                for (let ni = 0; ni < maxNode; ni++) {
+                    let currentKey = '';
+                    for (let k = 0; k <= ni; k++) {
+                        currentKey = currentKey ? `${currentKey}->${path[k]}` : path[k];
+                    }
+                    const node = nodeMap[currentKey];
+                    if (node && !drawnNodes.has(currentKey)) {
+                        // Подсвечиваем только текущий узел на текущем уровне
+                        const isCurrent = (ni === maxLevel && pi === nodeIndexInLevel);
+                        drawNodeAnimated(node, isCurrent);
+                        drawnNodes.add(currentKey); // Отмечаем узел как нарисованный
+                    }
+                }
+            }
+            
+            // Информация о текущем состоянии
+            ctx.fillStyle = '#2c3e50';
+            ctx.font = 'bold 18px Arial';
+            ctx.textAlign = 'center';
+            
+            // Считаем количество узлов на этом уровне
+            const nodesAtThisLevel = paths.filter(p => maxLevel < p.length).length;
+            ctx.fillText(`Уровень ${maxLevel} | Добавляем узел ${nodeIndexInLevel + 1}/${nodesAtThisLevel}`, canvas.width / 2, canvas.height - 20);
+        }
+        
+        function drawEdge(from, to) {
+            const nodeRadius = from.depth === 0 ? 20 : 16;
+            const childRadius = to.isLeaf ? 14 : 16;
+            
+            const angle = Math.atan2(to.y - from.y, to.x - from.x);
+            const startX = from.x + nodeRadius * Math.cos(angle);
+            const startY = from.y + nodeRadius * Math.sin(angle);
+            const endX = to.x - childRadius * Math.cos(angle);
+            const endY = to.y - childRadius * Math.sin(angle);
+            
+            ctx.beginPath();
+            ctx.moveTo(startX, startY);
+            ctx.lineTo(endX, endY);
+            
+            const gradient = ctx.createLinearGradient(startX, startY, endX, endY);
+            gradient.addColorStop(0, '#95a5a6');
+            gradient.addColorStop(1, '#7f8c8d');
+            
+            ctx.strokeStyle = gradient;
+            ctx.lineWidth = 3;
+            ctx.lineCap = 'round';
+            ctx.stroke();
+        }
+        
+        function drawNodeAnimated(node, isCurrent) {
+            const size = node.depth === 0 ? 40 : (node.isLeaf ? 28 : 32);
+            let color = '#3498db';
+            
+            if (node.depth === 0) {
+                color = '#e74c3c';
+            } else if (node.isLeaf) {
+                color = '#2ecc71';
+            }
+            
+            // Анимация текущего узла
+            if (isCurrent) {
+                ctx.shadowColor = 'rgba(255, 107, 107, 0.5)';
+                ctx.shadowBlur = 20;
+                ctx.shadowOffsetX = 0;
+                ctx.shadowOffsetY = 0;
+            } else {
+                ctx.shadowColor = 'rgba(0, 0, 0, 0.2)';
+                ctx.shadowBlur = 8;
+                ctx.shadowOffsetX = 2;
+                ctx.shadowOffsetY = 2;
+            }
+            
+            ctx.beginPath();
+            ctx.arc(node.x, node.y, size / 2, 0, 2 * Math.PI);
+            ctx.fillStyle = color;
+            ctx.fill();
+            
+            ctx.shadowColor = 'transparent';
+            ctx.shadowBlur = 0;
+            
+            let strokeColor = node.depth === 0 ? '#c0392b' : (node.isLeaf ? '#27ae60' : '#2980b9');
+            ctx.strokeStyle = isCurrent ? '#ff6b6b' : strokeColor;
+            ctx.lineWidth = isCurrent ? 5 : 3;
+            ctx.stroke();
+            
+            ctx.fillStyle = 'white';
+            ctx.font = `bold ${Math.max(16, size / 1.8)}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(node.label, node.x, node.y);
+            
+            if (node.isLeaf && node.pathNumber) {
+                ctx.fillStyle = '#2c3e50';
+                ctx.font = 'bold 16px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(node.pathNumber, node.x, node.y + 42);
+            }
+        }
     </script>
 </body>
 </html>
