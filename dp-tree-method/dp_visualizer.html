@@ -325,6 +325,16 @@
             
             // Создаём очередь анимации
             buildAnimationQueue();
+            
+            console.log('Очередь анимации (' + animationQueue.length + ' шагов):');
+            animationQueue.forEach((step, i) => {
+                if (step.type === 'edge') {
+                    console.log(`  ${i}: edge ${step.edgeKey}`);
+                } else {
+                    console.log(`  ${i}: node ${step.nodeId}`);
+                }
+            });
+            
             shownEdges = new Set();
             shownNodes = new Set();
             shownNodes.add(sortedNodes[0].id); // Первая вершина сразу видна
@@ -340,18 +350,27 @@
         }
         
         function stepForward() {
-            if (currentStep >= animationQueue.length) return;
+            console.log(`stepForward() вызван: currentStep=${currentStep}, animationQueue.length=${animationQueue.length}`);
+            
+            if (currentStep >= animationQueue.length) {
+                console.log('  Анимация завершена!');
+                return;
+            }
             
             const step = animationQueue[currentStep];
+            console.log(`  Шаг ${currentStep}: type=${step.type}, ${step.type === 'edge' ? 'edgeKey=' + step.edgeKey : 'nodeId=' + step.nodeId}`);
+            
             currentStep++;
             
             if (step.type === 'edge') {
                 // Показываем ребро
                 shownEdges.add(step.edgeKey);
+                console.log(`    Добавлено ребро ${step.edgeKey}, всего показано рёбер: ${shownEdges.size}`);
             } else if (step.type === 'node') {
                 // Вычисляем и показываем вершину
                 calculateDP(step.nodeId);
                 shownNodes.add(step.nodeId);
+                console.log(`    Добавлена вершина ${step.nodeId}, dpValue=${dpValues[step.nodeId]}, всего показано вершин: ${shownNodes.size}`);
             }
             
             updateTable();
@@ -410,11 +429,24 @@
                 return;
             }
             
-            const node = sortedNodes[currentStep];
-            const incoming = graph.edges.filter(e => e.to === node.id);
+            // Получаем текущий шаг из очереди анимации
+            const stepIndex = currentStep - 1;
+            if (stepIndex < 0 || stepIndex >= animationQueue.length) {
+                return;
+            }
+            
+            const step = animationQueue[stepIndex];
+            
+            // Формулу показываем только для вершин, не для рёбер
+            if (step.type !== 'node') {
+                return;
+            }
+            
+            const nodeId = step.nodeId;
+            const incoming = graph.edges.filter(e => e.to === nodeId);
             
             if (incoming.length === 0) {
-                formulaBox.innerHTML = `<strong>${node.id} = 0</strong> (нет входящих рёбер)`;
+                formulaBox.innerHTML = `<strong>${nodeId} = 0</strong> (нет входящих рёбер)`;
                 return;
             }
             
@@ -423,142 +455,168 @@
                 return `${e.from}(${val})`;
             });
             
-            const sum = dpValues[node.id] || 0;
+            const sum = dpValues[nodeId] || 0;
             formulaBox.innerHTML = `
-                <strong>${node.id} = ${parts.join(' + ')}</strong><br>
-                <strong>${node.id} = ${sum}</strong>
+                <strong>${nodeId} = ${parts.join(' + ')}</strong><br>
+                <strong>${nodeId} = ${sum}</strong>
             `;
         }
         
         function draw() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            console.log(`draw() вызван: dpMode=${dpMode}, canvas=${canvas.width}x${canvas.height}`);
             
-            console.log(`draw(): dpMode=${dpMode}, canvas size=${canvas.width}x${canvas.height}, shownEdges=${shownEdges.size}, shownNodes=${shownNodes.size}`);
-            
-            if (!dpMode) {
-                // Режим редактирования: рисуем изображение с отметками
-                if (sourceImage) {
-                    ctx.drawImage(sourceImage, 0, 0);
-                }
+            try {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
                 
-                // Рисуем рёбра (без весов в режиме редактирования)
-                edges.forEach(edge => {
-                    drawArrow(edge.from.x, edge.from.y, edge.to.x, edge.to.y, '#667eea', 3);
-                });
+                console.log(`draw(): dpMode=${dpMode}, canvas size=${canvas.width}x${canvas.height}, shownEdges=${shownEdges.size}, shownNodes=${shownNodes.size}`);
                 
-                // Рисуем вершины
-                nodes.forEach(node => {
-                    const isSelected = (selectedNode === node);
-                    ctx.beginPath();
-                    ctx.arc(node.x, node.y, 20, 0, 2 * Math.PI);
-                    ctx.fillStyle = isSelected ? '#ff6b6b' : '#667eea';
-                    ctx.fill();
-                    ctx.strokeStyle = 'white';
-                    ctx.lineWidth = 3;
-                    ctx.stroke();
+                if (!dpMode) {
+                    // Режим редактирования: рисуем изображение с отметками
+                    if (sourceImage) {
+                        ctx.drawImage(sourceImage, 0, 0);
+                    }
                     
-                    ctx.fillStyle = 'white';
-                    ctx.font = 'bold 16px Arial';
-                    ctx.textAlign = 'center';
-                    ctx.textBaseline = 'middle';
-                    ctx.fillText(node.label, node.x, node.y);
-                    // Значения не показываются в режиме редактирования
-                });
-            } else {
-                // Режим ДП-визуализации
-                console.log(`  В режиме ДП: graph.edges=${graph.edges.length}, graph.nodes=${graph.nodes.length}`);
-                
-                // Рисуем ТОЛЬКО показанные рёбра
-                let drawnEdges = 0;
-                graph.edges.forEach(edge => {
-                    const edgeKey = `${edge.from}->${edge.to}`;
-                    if (!shownEdges.has(edgeKey)) return; // Пропускаем ещё не показанные рёбра
+                    // Рисуем рёбра (без весов в режиме редактирования)
+                    edges.forEach(edge => {
+                        drawArrow(edge.from.x, edge.from.y, edge.to.x, edge.to.y, '#667eea', 3);
+                    });
                     
-                    drawnEdges++;
-                    const from = graph.nodes.find(n => n.id === edge.from);
-                    const to = graph.nodes.find(n => n.id === edge.to);
-                    if (from && to) {
-                        drawArrow(from.x, from.y, to.x, to.y, '#ddd', 2);
+                    // Рисуем вершины
+                    nodes.forEach(node => {
+                        const isSelected = (selectedNode === node);
+                        ctx.beginPath();
+                        ctx.arc(node.x, node.y, 20, 0, 2 * Math.PI);
+                        ctx.fillStyle = isSelected ? '#ff6b6b' : '#667eea';
+                        ctx.fill();
+                        ctx.strokeStyle = 'white';
+                        ctx.lineWidth = 3;
+                        ctx.stroke();
                         
-                        // Отображаем вес ребра
-                        const weight = dpValues[from.id];
-                        if (weight !== undefined) {
-                            const midX = (from.x + to.x) / 2;
-                            const midY = (from.y + to.y) / 2;
+                        ctx.fillStyle = 'white';
+                        ctx.font = 'bold 16px Arial';
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText(node.label, node.x, node.y);
+                        // Значения не показываются в режиме редактирования
+                    });
+                } else {
+                    // Режим ДП-визуализации
+                    console.log(`  В режиме ДП: graph.edges=${graph.edges.length}, graph.nodes=${graph.nodes.length}`);
+                    
+                    // Рисуем ТОЛЬКО показанные рёбра
+                    let drawnEdges = 0;
+                    graph.edges.forEach(edge => {
+                        const edgeKey = `${edge.from}->${edge.to}`;
+                        if (!shownEdges.has(edgeKey)) return; // Пропускаем ещё не показанные рёбра
+                        
+                        drawnEdges++;
+                        const from = graph.nodes.find(n => n.id === edge.from);
+                        const to = graph.nodes.find(n => n.id === edge.to);
+                        if (from && to) {
+                            drawArrow(from.x, from.y, to.x, to.y, '#ddd', 2);
                             
-                            // Рисуем белый круг под текстом
-                            ctx.beginPath();
-                            ctx.arc(midX, midY, 15, 0, 2 * Math.PI);
-                            ctx.fillStyle = 'white';
-                            ctx.fill();
-                            ctx.strokeStyle = '#667eea';
-                            ctx.lineWidth = 2;
-                            ctx.stroke();
-                            
-                            // Рисуем вес
-                            ctx.fillStyle = '#667eea';
-                            ctx.font = 'bold 14px Arial';
-                            ctx.textAlign = 'center';
-                            ctx.textBaseline = 'middle';
-                            ctx.fillText(weight, midX, midY);
+                            // Отображаем вес ребра
+                            const weight = dpValues[from.id];
+                            if (weight !== undefined) {
+                                const midX = (from.x + to.x) / 2;
+                                const midY = (from.y + to.y) / 2;
+                                
+                                // Рисуем белый круг под текстом
+                                ctx.beginPath();
+                                ctx.arc(midX, midY, 15, 0, 2 * Math.PI);
+                                ctx.fillStyle = 'white';
+                                ctx.fill();
+                                ctx.strokeStyle = '#667eea';
+                                ctx.lineWidth = 2;
+                                ctx.stroke();
+                                
+                                // Рисуем вес
+                                ctx.fillStyle = '#667eea';
+                                ctx.font = 'bold 14px Arial';
+                                ctx.textAlign = 'center';
+                                ctx.textBaseline = 'middle';
+                                ctx.fillText(weight, midX, midY);
+                            }
                         }
-                    }
-                });
-                
-                console.log(`  Нарисовано рёбер: ${drawnEdges}`);
-                
-                // Рисуем ТОЛЬКО показанные вершины
-                let drawnNodes = 0;
-                graph.nodes.forEach((node, index) => {
-                    if (!shownNodes.has(node.id)) return; // Пропускаем ещё не показанные вершины
+                    });
                     
-                    drawnNodes++;
-                    const value = dpValues[node.id];
-                    const isCurrent = (currentStep > 0 && animationQueue[currentStep - 1]?.type === 'node' && animationQueue[currentStep - 1]?.nodeId === node.id);
-                    const isCompleted = dpValues[node.id] !== undefined && !isCurrent;
+                    console.log(`  Нарисовано рёбер: ${drawnEdges}`);
                     
-                    if (drawnNodes <= 3) {
-                        console.log(`    Вершина ${node.id}: x=${node.x}, y=${node.y}`);
-                    }
+                    // Рисуем ТОЛЬКО показанные вершины
+                    let drawnNodes = 0;
+                    console.log(`  Начинаем рисовать вершины, shownNodes содержит: ${Array.from(shownNodes).join(', ')}`);
                     
-                    let color = '#f0f0f0';
-                    if (isCurrent) color = '#fff3cd';
-                    if (isCompleted) color = '#d4edda';
+                    graph.nodes.forEach((node, index) => {
+                        if (!shownNodes.has(node.id)) {
+                            console.log(`    Пропускаем вершину ${node.id} (не в shownNodes)`);
+                            return;
+                        }
+                        
+                        drawnNodes++;
+                        const value = dpValues[node.id];
+                        const isCurrent = (currentStep > 0 && animationQueue[currentStep - 1]?.type === 'node' && animationQueue[currentStep - 1]?.nodeId === node.id);
+                        const isCompleted = dpValues[node.id] !== undefined && !isCurrent;
+                        
+                        if (drawnNodes <= 5) {
+                            console.log(`    Вершина ${node.id}: x=${node.x}, y=${node.y}, value=${value}, isCurrent=${isCurrent}`);
+                        }
+                        
+                        let color = '#f0f0f0';
+                        if (isCurrent) color = '#fff3cd';
+                        if (isCompleted) color = '#d4edda';
+                        
+                        console.log(`    Вызываем drawNode для ${node.id} с цветом ${color}`);
+                        drawNode(node.x, node.y, node.id, value, color, isCurrent);
+                    });
                     
-                    drawNode(node.x, node.y, node.id, value, color, isCurrent);
-                });
-                
-                console.log(`  Нарисовано вершин: ${drawnNodes}`);
+                    console.log(`  Нарисовано вершин: ${drawnNodes}`);
+                }
+            } catch (error) {
+                console.error('Ошибка в draw():', error);
             }
         }
         
         function drawNode(x, y, label, value, bgColor, isCurrent) {
-            // Круг вершины
-            ctx.beginPath();
-            ctx.arc(x, y, 30, 0, 2 * Math.PI);
-            ctx.fillStyle = bgColor;
-            ctx.fill();
-            ctx.strokeStyle = isCurrent ? '#ff8c00' : '#667eea';
-            ctx.lineWidth = isCurrent ? 4 : 2;
-            ctx.stroke();
-            
-            // Буква вершины
-            ctx.fillStyle = '#333';
-            ctx.font = 'bold 20px Arial';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(label, x, y);
-            
-            // Значение ДП
-            if (value !== undefined) {
-                ctx.beginPath();
-                ctx.arc(x + 25, y - 25, 18, 0, 2 * Math.PI);
-                ctx.fillStyle = '#667eea';
-                ctx.fill();
+            try {
+                console.log(`  drawNode вызван: label=${label}, x=${x}, y=${y}, value=${value}, bgColor=${bgColor}`);
                 
-                ctx.fillStyle = 'white';
-                ctx.font = 'bold 16px Arial';
-                ctx.fillText(value, x + 25, y - 25);
+                // Круг вершины
+                ctx.beginPath();
+                ctx.arc(x, y, 30, 0, 2 * Math.PI);
+                ctx.fillStyle = bgColor;
+                ctx.fill();
+                ctx.strokeStyle = isCurrent ? '#ff8c00' : '#667eea';
+                ctx.lineWidth = isCurrent ? 4 : 2;
+                ctx.stroke();
+                
+                console.log(`    Круг нарисован для ${label}`);
+                
+                // Буква вершины
+                ctx.fillStyle = '#333';
+                ctx.font = 'bold 20px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(label, x, y);
+                
+                console.log(`    Текст нарисован для ${label}`);
+                
+                // Значение ДП
+                if (value !== undefined) {
+                    ctx.beginPath();
+                    ctx.arc(x + 25, y - 25, 18, 0, 2 * Math.PI);
+                    ctx.fillStyle = '#667eea';
+                    ctx.fill();
+                    
+                    ctx.fillStyle = 'white';
+                    ctx.font = 'bold 16px Arial';
+                    ctx.fillText(value, x + 25, y - 25);
+                    
+                    console.log(`    Значение ДП (${value}) нарисовано для ${label}`);
+                }
+                
+                console.log(`  drawNode завершён для ${label}`);
+            } catch (error) {
+                console.error(`Ошибка в drawNode для ${label}:`, error);
             }
         }
         
@@ -591,20 +649,29 @@
         }
         
         function startAnimation() {
+            console.log('=== startAnimation() вызван ===');
             reset();
             
             if (animationInterval) {
+                console.log('  Останавливаем предыдущий интервал');
                 clearInterval(animationInterval);
             }
             
+            console.log(`  Запускаем новый интервал, очередь содержит ${animationQueue.length} шагов`);
+            
             animationInterval = setInterval(() => {
-                if (currentStep >= sortedNodes.length - 1) {
+                console.log(`[Интервал] Tick: currentStep=${currentStep}, queue.length=${animationQueue.length}`);
+                
+                if (currentStep >= animationQueue.length) {
+                    console.log('[Интервал] Анимация завершена, останавливаем интервал');
                     clearInterval(animationInterval);
                     animationInterval = null;
                     return;
                 }
                 stepForward();
             }, 1500);
+            
+            console.log('  Интервал запущен с задержкой 1500ms');
         }
         
         // Загрузка изображения
@@ -715,6 +782,12 @@
             
             // Рассчитываем уровни (топологическая сортировка)
             calculateLevels();
+            
+            // Выводим координаты всех вершин
+            console.log('Координаты вершин:');
+            graph.nodes.forEach(n => {
+                console.log(`  ${n.id}: x=${Math.round(n.x)}, y=${Math.round(n.y)}, level=${n.level}`);
+            });
             
             dpMode = true;
             reset();
