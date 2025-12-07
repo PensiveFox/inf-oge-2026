@@ -484,89 +484,82 @@
                     // Рисуем вершины
                     nodes.forEach(node => {
                         const isSelected = (selectedNode === node);
-                        ctx.beginPath();
-                        ctx.arc(node.x, node.y, 20, 0, 2 * Math.PI);
-                        ctx.fillStyle = isSelected ? '#ff6b6b' : '#667eea';
-                        ctx.fill();
-                        ctx.strokeStyle = 'white';
-                        ctx.lineWidth = 3;
-                        ctx.stroke();
-                        
-                        ctx.fillStyle = 'white';
-                        ctx.font = 'bold 16px Arial';
-                        ctx.textAlign = 'center';
-                        ctx.textBaseline = 'middle';
-                        ctx.fillText(node.label, node.x, node.y);
-                        // Значения не показываются в режиме редактирования
+                        drawNode(node.x, node.y, node.label, null, isSelected ? '#ff6b6b' : '#667eea', isSelected, true);
                     });
                 } else {
                     // Режим ДП-визуализации
                     console.log(`  В режиме ДП: graph.edges=${graph.edges.length}, graph.nodes=${graph.nodes.length}`);
                     
-                    // Рисуем ТОЛЬКО показанные рёбра
+                    // Рисуем ВСЕ рёбра (активные и неактивные)
                     let drawnEdges = 0;
                     graph.edges.forEach(edge => {
                         const edgeKey = `${edge.from}->${edge.to}`;
-                        if (!shownEdges.has(edgeKey)) return; // Пропускаем ещё не показанные рёбра
+                        const isActive = shownEdges.has(edgeKey);
                         
                         drawnEdges++;
                         const from = graph.nodes.find(n => n.id === edge.from);
                         const to = graph.nodes.find(n => n.id === edge.to);
                         if (from && to) {
-                            drawArrow(from.x, from.y, to.x, to.y, '#ddd', 2);
+                            // Неактивные рёбра - очень блеклые, активные - более яркие
+                            const edgeColor = isActive ? '#999' : '#e0e0e0';
+                            const edgeWidth = isActive ? 2 : 1;
+                            drawArrow(from.x, from.y, to.x, to.y, edgeColor, edgeWidth);
                             
-                            // Отображаем вес ребра
-                            const weight = dpValues[from.id];
-                            if (weight !== undefined) {
-                                const midX = (from.x + to.x) / 2;
-                                const midY = (from.y + to.y) / 2;
-                                
-                                // Рисуем белый круг под текстом
-                                ctx.beginPath();
-                                ctx.arc(midX, midY, 15, 0, 2 * Math.PI);
-                                ctx.fillStyle = 'white';
-                                ctx.fill();
-                                ctx.strokeStyle = '#667eea';
-                                ctx.lineWidth = 2;
-                                ctx.stroke();
-                                
-                                // Рисуем вес
-                                ctx.fillStyle = '#667eea';
-                                ctx.font = 'bold 14px Arial';
-                                ctx.textAlign = 'center';
-                                ctx.textBaseline = 'middle';
-                                ctx.fillText(weight, midX, midY);
+                            // Отображаем вес ребра ТОЛЬКО для активных рёбер
+                            if (isActive) {
+                                const weight = dpValues[from.id];
+                                if (weight !== undefined) {
+                                    const midX = (from.x + to.x) / 2;
+                                    const midY = (from.y + to.y) / 2;
+                                    
+                                    // Рисуем белый круг под текстом
+                                    ctx.beginPath();
+                                    ctx.arc(midX, midY, 15, 0, 2 * Math.PI);
+                                    ctx.fillStyle = 'white';
+                                    ctx.fill();
+                                    ctx.strokeStyle = '#667eea';
+                                    ctx.lineWidth = 2;
+                                    ctx.stroke();
+                                    
+                                    // Рисуем вес
+                                    ctx.fillStyle = '#667eea';
+                                    ctx.font = 'bold 14px Arial';
+                                    ctx.textAlign = 'center';
+                                    ctx.textBaseline = 'middle';
+                                    ctx.fillText(weight, midX, midY);
+                                }
                             }
                         }
                     });
                     
                     console.log(`  Нарисовано рёбер: ${drawnEdges}`);
                     
-                    // Рисуем ТОЛЬКО показанные вершины
+                    // Рисуем ВСЕ вершины
                     let drawnNodes = 0;
                     console.log(`  Начинаем рисовать вершины, shownNodes содержит: ${Array.from(shownNodes).join(', ')}`);
                     
                     graph.nodes.forEach((node, index) => {
-                        if (!shownNodes.has(node.id)) {
-                            console.log(`    Пропускаем вершину ${node.id} (не в shownNodes)`);
-                            return;
-                        }
-                        
                         drawnNodes++;
-                        const value = dpValues[node.id];
+                        
+                        // Проверяем, активна ли вершина (показана в анимации)
+                        const isActive = shownNodes.has(node.id);
+                        const value = isActive ? dpValues[node.id] : undefined;
                         const isCurrent = (currentStep > 0 && animationQueue[currentStep - 1]?.type === 'node' && animationQueue[currentStep - 1]?.nodeId === node.id);
-                        const isCompleted = dpValues[node.id] !== undefined && !isCurrent;
+                        const isCompleted = isActive && dpValues[node.id] !== undefined && !isCurrent;
                         
                         if (drawnNodes <= 5) {
-                            console.log(`    Вершина ${node.id}: x=${node.x}, y=${node.y}, value=${value}, isCurrent=${isCurrent}`);
+                            console.log(`    Вершина ${node.id}: x=${node.x}, y=${node.y}, isActive=${isActive}, value=${value}, isCurrent=${isCurrent}`);
                         }
                         
-                        let color = '#f0f0f0';
-                        if (isCurrent) color = '#fff3cd';
-                        if (isCompleted) color = '#d4edda';
+                        // Цвет вершины
+                        let color = '#f0f0f0'; // Неактивная (серая)
+                        if (isActive) {
+                            if (isCurrent) color = '#fff3cd'; // Текущая (желтая)
+                            else if (isCompleted) color = '#d4edda'; // Завершенная (зеленая)
+                        }
                         
-                        console.log(`    Вызываем drawNode для ${node.id} с цветом ${color}`);
-                        drawNode(node.x, node.y, node.id, value, color, isCurrent);
+                        console.log(`    Вызываем drawNode для ${node.id} с цветом ${color}, isActive=${isActive}`);
+                        drawNode(node.x, node.y, node.id, value, color, isCurrent, isActive);
                     });
                     
                     console.log(`  Нарисовано вершин: ${drawnNodes}`);
@@ -576,23 +569,30 @@
             }
         }
         
-        function drawNode(x, y, label, value, bgColor, isCurrent) {
+        function drawNode(x, y, label, value, bgColor, isCurrent, isActive) {
             try {
-                console.log(`  drawNode вызван: label=${label}, x=${x}, y=${y}, value=${value}, bgColor=${bgColor}`);
+                console.log(`  drawNode вызван: label=${label}, x=${x}, y=${y}, value=${value}, bgColor=${bgColor}, isActive=${isActive}`);
                 
                 // Круг вершины
                 ctx.beginPath();
                 ctx.arc(x, y, 30, 0, 2 * Math.PI);
                 ctx.fillStyle = bgColor;
                 ctx.fill();
-                ctx.strokeStyle = isCurrent ? '#ff8c00' : '#667eea';
-                ctx.lineWidth = isCurrent ? 4 : 2;
+                
+                // Обводка зависит от статуса вершины
+                if (isActive !== false) { // активная или в режиме редактирования
+                    ctx.strokeStyle = isCurrent ? '#ff8c00' : '#667eea';
+                    ctx.lineWidth = isCurrent ? 4 : 2;
+                } else { // неактивная в режиме ДП
+                    ctx.strokeStyle = '#ccc';
+                    ctx.lineWidth = 1;
+                }
                 ctx.stroke();
                 
                 console.log(`    Круг нарисован для ${label}`);
                 
-                // Буква вершины
-                ctx.fillStyle = '#333';
+                // Буква вершины - серая для неактивных, черная для активных
+                ctx.fillStyle = (isActive !== false) ? '#333' : '#999';
                 ctx.font = 'bold 20px Arial';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
@@ -600,8 +600,8 @@
                 
                 console.log(`    Текст нарисован для ${label}`);
                 
-                // Значение ДП
-                if (value !== undefined) {
+                // Значение ДП - только для активных вершин с определенным значением (не null, не undefined)
+                if (value !== undefined && value !== null && isActive !== false) {
                     ctx.beginPath();
                     ctx.arc(x + 25, y - 25, 18, 0, 2 * Math.PI);
                     ctx.fillStyle = '#667eea';
@@ -609,6 +609,8 @@
                     
                     ctx.fillStyle = 'white';
                     ctx.font = 'bold 16px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
                     ctx.fillText(value, x + 25, y - 25);
                     
                     console.log(`    Значение ДП (${value}) нарисовано для ${label}`);
