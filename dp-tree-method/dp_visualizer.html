@@ -247,8 +247,48 @@
         setTimeout(resizeCanvas, 100);
         
         function topologicalSort() {
-            // Топологическая сортировка (по уровням)
-            return graph.nodes.slice().sort((a, b) => a.level - b.level);
+            // Классический алгоритм Кана для топологической сортировки
+            const inDegree = {};
+            const result = [];
+            
+            // Инициализация
+            graph.nodes.forEach(node => {
+                inDegree[node.id] = 0;
+            });
+            
+            // Подсчёт входящих рёбер
+            graph.edges.forEach(edge => {
+                inDegree[edge.to]++;
+            });
+            
+            // Очередь вершин без входящих рёбер (отсортированные)
+            let queue = graph.nodes.filter(n => inDegree[n.id] === 0).sort((a, b) => a.id.localeCompare(b.id));
+            
+            while (queue.length > 0) {
+                const current = queue.shift();
+                result.push(current);
+                
+                // Находим все исходящие рёбра и уменьшаем inDegree
+                const outgoing = graph.edges.filter(e => e.from === current.id);
+                
+                outgoing.forEach(edge => {
+                    inDegree[edge.to]--;
+                    if (inDegree[edge.to] === 0) {
+                        const nextNode = graph.nodes.find(n => n.id === edge.to);
+                        if (nextNode) {
+                            // Вставляем в очередь в отсортированном порядке
+                            const insertIndex = queue.findIndex(n => n.id > nextNode.id);
+                            if (insertIndex === -1) {
+                                queue.push(nextNode);
+                            } else {
+                                queue.splice(insertIndex, 0, nextNode);
+                            }
+                        }
+                    }
+                });
+            }
+            
+            return result;
         }
         
         function buildAnimationQueue() {
@@ -393,6 +433,8 @@
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             
+            console.log(`draw(): dpMode=${dpMode}, canvas size=${canvas.width}x${canvas.height}, shownEdges=${shownEdges.size}, shownNodes=${shownNodes.size}`);
+            
             if (!dpMode) {
                 // Режим редактирования: рисуем изображение с отметками
                 if (sourceImage) {
@@ -424,11 +466,15 @@
                 });
             } else {
                 // Режим ДП-визуализации
+                console.log(`  В режиме ДП: graph.edges=${graph.edges.length}, graph.nodes=${graph.nodes.length}`);
+                
                 // Рисуем ТОЛЬКО показанные рёбра
+                let drawnEdges = 0;
                 graph.edges.forEach(edge => {
                     const edgeKey = `${edge.from}->${edge.to}`;
                     if (!shownEdges.has(edgeKey)) return; // Пропускаем ещё не показанные рёбра
                     
+                    drawnEdges++;
                     const from = graph.nodes.find(n => n.id === edge.from);
                     const to = graph.nodes.find(n => n.id === edge.to);
                     if (from && to) {
@@ -459,13 +505,21 @@
                     }
                 });
                 
+                console.log(`  Нарисовано рёбер: ${drawnEdges}`);
+                
                 // Рисуем ТОЛЬКО показанные вершины
+                let drawnNodes = 0;
                 graph.nodes.forEach((node, index) => {
                     if (!shownNodes.has(node.id)) return; // Пропускаем ещё не показанные вершины
                     
+                    drawnNodes++;
                     const value = dpValues[node.id];
                     const isCurrent = (currentStep > 0 && animationQueue[currentStep - 1]?.type === 'node' && animationQueue[currentStep - 1]?.nodeId === node.id);
                     const isCompleted = dpValues[node.id] !== undefined && !isCurrent;
+                    
+                    if (drawnNodes <= 3) {
+                        console.log(`    Вершина ${node.id}: x=${node.x}, y=${node.y}`);
+                    }
                     
                     let color = '#f0f0f0';
                     if (isCurrent) color = '#fff3cd';
@@ -473,6 +527,8 @@
                     
                     drawNode(node.x, node.y, node.id, value, color, isCurrent);
                 });
+                
+                console.log(`  Нарисовано вершин: ${drawnNodes}`);
             }
         }
         
