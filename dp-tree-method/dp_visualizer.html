@@ -352,6 +352,26 @@
                 // Рисуем рёбра
                 edges.forEach(edge => {
                     drawArrow(edge.from.x, edge.from.y, edge.to.x, edge.to.y, '#667eea', 3);
+                    
+                    // Отображаем вес на середине ребра
+                    const midX = (edge.from.x + edge.to.x) / 2;
+                    const midY = (edge.from.y + edge.to.y) / 2;
+                    
+                    // Рисуем белый круг под текстом
+                    ctx.beginPath();
+                    ctx.arc(midX, midY, 15, 0, 2 * Math.PI);
+                    ctx.fillStyle = 'white';
+                    ctx.fill();
+                    ctx.strokeStyle = '#667eea';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                    
+                    // Рисуем вес
+                    ctx.fillStyle = '#667eea';
+                    ctx.font = 'bold 14px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(edge.weight || 1, midX, midY);
                 });
                 
                 // Рисуем вершины
@@ -537,7 +557,12 @@
         }
         
         function addEdge(from, to) {
-            edges.push({ from, to });
+            // Запрашиваем вес ребра
+            const weight = prompt(`Введите вес ребра ${from.label} → ${to.label}:`, '1');
+            if (weight === null) return; // Отменено
+            
+            const w = parseFloat(weight) || 1;
+            edges.push({ from, to, weight: w });
             draw();
         }
         
@@ -573,7 +598,8 @@
             
             graph.edges = edges.map(e => ({
                 from: e.from.label,
-                to: e.to.label
+                to: e.to.label,
+                weight: e.weight || 1
             }));
             
             // Рассчитываем уровни (топологическая сортировка)
