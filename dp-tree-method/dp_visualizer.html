@@ -380,6 +380,29 @@
                     const to = graph.nodes.find(n => n.id === edge.to);
                     if (from && to) {
                         drawArrow(from.x, from.y, to.x, to.y, '#ddd', 2);
+                        
+                        // Отображаем вес ребра (значение ДП исходной вершины)
+                        const weight = dpValues[from.id];
+                        if (weight !== undefined) {
+                            const midX = (from.x + to.x) / 2;
+                            const midY = (from.y + to.y) / 2;
+                            
+                            // Рисуем белый круг под текстом
+                            ctx.beginPath();
+                            ctx.arc(midX, midY, 15, 0, 2 * Math.PI);
+                            ctx.fillStyle = 'white';
+                            ctx.fill();
+                            ctx.strokeStyle = '#667eea';
+                            ctx.lineWidth = 2;
+                            ctx.stroke();
+                            
+                            // Рисуем вес
+                            ctx.fillStyle = '#667eea';
+                            ctx.font = 'bold 14px Arial';
+                            ctx.textAlign = 'center';
+                            ctx.textBaseline = 'middle';
+                            ctx.fillText(weight, midX, midY);
+                        }
                     }
                 });
                 
