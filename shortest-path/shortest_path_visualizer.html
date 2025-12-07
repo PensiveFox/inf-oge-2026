@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Задание 4 ОГЭ - Кратчайший путь</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+        
+        .container {
+            display: flex;
+            gap: 20px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .graph-area {
+            flex: 2;
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        }
+        
+        .sidebar {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .panel {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        }
+        
+        .panel h3 {
+            margin-bottom: 15px;
+            color: #333;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+        
+        canvas {
+            display: block;
+            width: 100%;
+            height: 600px;
+            border: 2px solid #eee;
+            border-radius: 10px;
+        }
+        
+        button {
+            padding: 12px 24px;
+            margin: 5px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        button.primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        button.primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+        }
+        
+        button.secondary {
+            background: #27ae60;
+            color: white;
+        }
+        
+        button.secondary:hover {
+            background: #229954;
+        }
+        
+        .dp-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        
+        .dp-table th, .dp-table td {
+            padding: 10px;
+            border: 1px solid #ddd;
+            text-align: center;
+        }
+        
+        .dp-table th {
+            background: #667eea;
+            color: white;
+        }
+        
+        .dp-table tr.current {
+            background: #fff3cd;
+            font-weight: bold;
+        }
+        
+        .dp-table tr.completed {
+            background: #d4edda;
+        }
+        
+        .formula {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            margin: 10px 0;
+            border-left: 4px solid #667eea;
+        }
+        
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
+        .info-box {
+            background: #e8f4f8;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🗺️ Задание 4 ОГЭ 2026</h1>
+        <p>Поиск кратчайшего пути в графе</p>
+    </div>
+    
+    <div class="container">
+        <div class="graph-area">
+            <div style="margin-bottom: 15px; padding: 15px; background: #e8f4f8; border-radius: 8px;">
+                <strong>📝 Задание:</strong> Найти длину кратчайшего пути между пунктами A и D
+            </div>
+            
+            <input type="file" id="imageInput" accept="image/*" style="margin-bottom: 10px;">
+            
+            <canvas id="canvas"></canvas>
+            
+            <div class="controls">
+                <button class="primary" onclick="setMode('node')" id="nodeModeBtn">➕ Добавить вершину</button>
+                <button class="primary" onclick="setMode('edge')" id="edgeModeBtn">↔️ Добавить ребро</button>
+                <button class="secondary" onclick="clearGraph()">🗑️ Очистить граф</button>
+            </div>
+            
+            <div class="controls">
+                <button class="secondary" onclick="buildDPGraph()">🔨 Построить граф</button>
+                <button class="secondary" onclick="startAnimation()">▶️ Запустить поиск</button>
+                <button class="primary" onclick="stepForward()">➡️ Следующий шаг</button>
+                <button class="primary" onclick="reset()">🔄 Сброс</button>
+            </div>
+        </div>
+        
+        <div class="sidebar">
+            <div class="panel">
+                <h3>📊 Таблица расстояний</h3>
+                <table class="dp-table" id="dpTable">
+                    <thead>
+                        <tr>
+                            <th>Вершина</th>
+                            <th>Мин. расстояние</th>
+                        </tr>
+                    </thead>
+                    <tbody id="dpTableBody"></tbody>
+                </table>
+            </div>
+            
+            <div class="panel">
+                <h3>🧮 Текущее вычисление</h3>
+                <div class="formula" id="formulaBox">
+                    A = 0 (начальная вершина)
+                </div>
+            </div>
+            
+            <div class="panel">
+                <h3>ℹ️ Алгоритм</h3>
+                <div class="info-box">
+                    <strong>Динамическое программирование на DAG:</strong><br>
+                    1. Начальная вершина = 0<br>
+                    2. Для каждой вершины:<br>
+                    &nbsp;&nbsp;&nbsp;Расстояние = МИН(расстояние + вес ребра)<br>
+                    3. Конечная вершина = минимальный путь
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        let sourceImage = null;
+        let nodes = [];
+        let edges = [];
+        let mode = 'node';
+        let selectedNode = null;
+        let nextLetter = 65; // A
+        let dpMode = false;
+        
+        // Граф для ДП
+        let graph = {
+            nodes: [],
+            edges: []
+        };
+        
+        let dpValues = {};  // Минимальные расстояния
+        let currentStep = 0;
+        let sortedNodes = [];
+        let animationInterval = null;
+        let animationQueue = [];
+        let shownEdges = new Set();
+        let shownNodes = new Set();
+        
+        function resizeCanvas() {
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+            draw();
+        }
+        
+        window.addEventListener('resize', resizeCanvas);
+        setTimeout(resizeCanvas, 100);
+        
+        // Топологическая сортировка
+        function topologicalSort() {
+            const inDegree = {};
+            const sorted = [];
+            
+            graph.nodes.forEach(node => inDegree[node.id] = 0);
+            graph.edges.forEach(edge => inDegree[edge.to]++);
+            
+            let queue = graph.nodes.filter(n => inDegree[n.id] === 0);
+            
+            while (queue.length > 0) {
+                const current = queue.shift();
+                sorted.push(current);
+                
+                const outgoing = graph.edges.filter(e => e.from === current.id);
+                outgoing.forEach(edge => {
+                    inDegree[edge.to]--;
+                    if (inDegree[edge.to] === 0) {
+                        const nextNode = graph.nodes.find(n => n.id === edge.to);
+                        queue.push(nextNode);
+                    }
+                });
+            }
+            
+            return sorted;
+        }
+        
+        function buildAnimationQueue() {
+            animationQueue = [];
+            
+            for (let i = 1; i < sortedNodes.length; i++) {
+                const node = sortedNodes[i];
+                const incomingEdges = graph.edges.filter(e => e.to === node.id);
+                
+                incomingEdges.forEach(edge => {
+                    animationQueue.push({
+                        type: 'edge',
+                        edgeKey: `${edge.from}->${edge.to}`,
+                        edge: edge
+                    });
+                });
+                
+                animationQueue.push({
+                    type: 'node',
+                    nodeId: node.id
+                });
+            }
+        }
+        
+        function reset() {
+            currentStep = 0;
+            dpValues = {};
+            sortedNodes = topologicalSort();
+            dpValues[sortedNodes[0].id] = 0; // A = 0
+            
+            buildAnimationQueue();
+            
+            shownEdges = new Set();
+            shownNodes = new Set();
+            shownNodes.add(sortedNodes[0].id);
+            
+            if (animationInterval) {
+                clearInterval(animationInterval);
+                animationInterval = null;
+            }
+            
+            updateTable();
+            updateFormula();
+            draw();
+        }
+        
+        function stepForward() {
+            if (currentStep >= animationQueue.length) return;
+            
+            const step = animationQueue[currentStep];
+            currentStep++;
+            
+            if (step.type === 'edge') {
+                shownEdges.add(step.edgeKey);
+            } else if (step.type === 'node') {
+                calculateDP(step.nodeId);
+                shownNodes.add(step.nodeId);
+            }
+            
+            updateTable();
+            updateFormula();
+            draw();
+        }
+        
+        function calculateDP(nodeId) {
+            let minDist = Infinity;
+            const incoming = graph.edges.filter(e => e.to === nodeId);
+            
+            incoming.forEach(edge => {
+                if (dpValues[edge.from] !== undefined) {
+                    const dist = dpValues[edge.from] + edge.weight;
+                    minDist = Math.min(minDist, dist);
+                }
+            });
+            
+            dpValues[nodeId] = minDist === Infinity ? 0 : minDist;
+        }
+        
+        function updateTable() {
+            const tbody = document.getElementById('dpTableBody');
+            tbody.innerHTML = '';
+            
+            sortedNodes.forEach(node => {
+                const value = dpValues[node.id];
+                const tr = document.createElement('tr');
+                
+                if (shownNodes.has(node.id) && currentStep > 0) {
+                    const lastStep = animationQueue[currentStep - 1];
+                    if (lastStep?.type === 'node' && lastStep.nodeId === node.id) {
+                        tr.className = 'current';
+                    } else if (value !== undefined) {
+                        tr.className = 'completed';
+                    }
+                }
+                
+                tr.innerHTML = `
+                    <td><strong>${node.id}</strong></td>
+                    <td>${value !== undefined ? value : '∞'}</td>
+                `;
+                
+                tbody.appendChild(tr);
+            });
+        }
+        
+        function updateFormula() {
+            const formulaBox = document.getElementById('formulaBox');
+            
+            if (currentStep === 0) {
+                formulaBox.innerHTML = `<strong>${sortedNodes[0].id} = 0</strong> (начальная вершина)`;
+                return;
+            }
+            
+            const stepIndex = currentStep - 1;
+            if (stepIndex < 0 || stepIndex >= animationQueue.length) return;
+            
+            const step = animationQueue[stepIndex];
+            if (step.type !== 'node') return;
+            
+            const nodeId = step.nodeId;
+            const incoming = graph.edges.filter(e => e.to === nodeId);
+            
+            if (incoming.length === 0) {
+                formulaBox.innerHTML = `<strong>${nodeId} = ∞</strong> (нет входящих рёбер)`;
+                return;
+            }
+            
+            const parts = incoming.map(e => {
+                const val = dpValues[e.from];
+                return `${e.from}(${val !== undefined ? val : '∞'}) + ${e.weight}`;
+            });
+            
+            const result = dpValues[nodeId];
+            formulaBox.innerHTML = `
+                <strong>${nodeId} = min(${parts.join(', ')})</strong><br>
+                <strong>${nodeId} = ${result !== undefined ? result : '∞'}</strong>
+            `;
+        }
+        
+        function draw() {
+            try {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                if (!dpMode) {
+                    // Режим редактирования
+                    if (sourceImage) {
+                        ctx.drawImage(sourceImage, 0, 0);
+                    }
+                    
+                    edges.forEach(edge => {
+                        drawArrow(edge.from.x, edge.from.y, edge.to.x, edge.to.y, '#667eea', 3);
+                        
+                        // Показываем вес ребра
+                        if (edge.weight) {
+                            const midX = (edge.from.x + edge.to.x) / 2;
+                            const midY = (edge.from.y + edge.to.y) / 2;
+                            ctx.fillStyle = '#ff6b6b';
+                            ctx.font = 'bold 16px Arial';
+                            ctx.textAlign = 'center';
+                            ctx.textBaseline = 'middle';
+                            ctx.fillText(edge.weight, midX, midY);
+                        }
+                    });
+                    
+                    nodes.forEach(node => {
+                        const isSelected = (selectedNode === node);
+                        drawNode(node.x, node.y, node.label, null, isSelected ? '#ff6b6b' : '#667eea', isSelected, true);
+                    });
+                } else {
+                    // Режим ДП-визуализации
+                    if (graph.nodes.length > 0) {
+                        const padding = 60;
+                        
+                        let minX = Math.min(...graph.nodes.map(n => n.x));
+                        let maxX = Math.max(...graph.nodes.map(n => n.x));
+                        let minY = Math.min(...graph.nodes.map(n => n.y));
+                        let maxY = Math.max(...graph.nodes.map(n => n.y));
+                        
+                        const graphWidth = maxX - minX;
+                        const graphHeight = maxY - minY;
+                        
+                        const availableWidth = canvas.width - 2 * padding;
+                        const availableHeight = canvas.height - 2 * padding;
+                        
+                        const scaleX = graphWidth > 0 ? availableWidth / graphWidth : 1;
+                        const scaleY = graphHeight > 0 ? availableHeight / graphHeight : 1;
+                        const scale = Math.min(scaleX, scaleY, 1.5);
+                        
+                        const offsetX = padding + (availableWidth - graphWidth * scale) / 2 - minX * scale;
+                        const offsetY = padding + (availableHeight - graphHeight * scale) / 2 - minY * scale;
+                        
+                        ctx.save();
+                        ctx.translate(offsetX, offsetY);
+                        ctx.scale(scale, scale);
+                    }
+                    
+                    // Рисуем ВСЕ рёбра
+                    graph.edges.forEach(edge => {
+                        const edgeKey = `${edge.from}->${edge.to}`;
+                        const isActive = shownEdges.has(edgeKey);
+                        
+                        const from = graph.nodes.find(n => n.id === edge.from);
+                        const to = graph.nodes.find(n => n.id === edge.to);
+                        if (from && to) {
+                            const edgeColor = isActive ? '#999' : '#e0e0e0';
+                            const edgeWidth = isActive ? 2 : 1;
+                            drawArrow(from.x, from.y, to.x, to.y, edgeColor, edgeWidth);
+                            
+                            // Показываем вес
+                            if (isActive && edge.weight) {
+                                const midX = (from.x + to.x) / 2;
+                                const midY = (from.y + to.y) / 2;
+                                
+                                ctx.beginPath();
+                                ctx.arc(midX, midY, 15, 0, 2 * Math.PI);
+                                ctx.fillStyle = 'white';
+                                ctx.fill();
+                                ctx.strokeStyle = '#667eea';
+                                ctx.lineWidth = 2;
+                                ctx.stroke();
+                                
+                                ctx.fillStyle = '#667eea';
+                                ctx.font = 'bold 14px Arial';
+                                ctx.textAlign = 'center';
+                                ctx.textBaseline = 'middle';
+                                ctx.fillText(edge.weight, midX, midY);
+                            }
+                        }
+                    });
+                    
+                    // Рисуем ВСЕ вершины
+                    graph.nodes.forEach(node => {
+                        const isActive = shownNodes.has(node.id);
+                        const value = isActive ? dpValues[node.id] : undefined;
+                        const isCurrent = (currentStep > 0 && animationQueue[currentStep - 1]?.type === 'node' && animationQueue[currentStep - 1]?.nodeId === node.id);
+                        const isCompleted = isActive && dpValues[node.id] !== undefined && !isCurrent;
+                        
+                        let color = '#f0f0f0';
+                        if (isActive) {
+                            if (isCurrent) color = '#fff3cd';
+                            else if (isCompleted) color = '#d4edda';
+                        }
+                        
+                        drawNode(node.x, node.y, node.id, value, color, isCurrent, isActive);
+                    });
+                    
+                    if (graph.nodes.length > 0) {
+                        ctx.restore();
+                    }
+                }
+            } catch (error) {
+                console.error('Ошибка в draw():', error);
+            }
+        }
+        
+        function drawNode(x, y, label, value, bgColor, isCurrent, isActive) {
+            try {
+                ctx.beginPath();
+                ctx.arc(x, y, 30, 0, 2 * Math.PI);
+                ctx.fillStyle = bgColor;
+                ctx.fill();
+                
+                if (isActive !== false) {
+                    ctx.strokeStyle = isCurrent ? '#ff8c00' : '#667eea';
+                    ctx.lineWidth = isCurrent ? 4 : 2;
+                } else {
+                    ctx.strokeStyle = '#ccc';
+                    ctx.lineWidth = 1;
+                }
+                ctx.stroke();
+                
+                ctx.fillStyle = (isActive !== false) ? '#333' : '#999';
+                ctx.font = 'bold 20px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(label, x, y);
+                
+                if (value !== undefined && value !== null && isActive !== false) {
+                    ctx.beginPath();
+                    ctx.arc(x + 25, y - 25, 18, 0, 2 * Math.PI);
+                    ctx.fillStyle = '#667eea';
+                    ctx.fill();
+                    
+                    ctx.fillStyle = 'white';
+                    ctx.font = 'bold 16px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(value, x + 25, y - 25);
+                }
+            } catch (error) {
+                console.error(`Ошибка в drawNode для ${label}:`, error);
+            }
+        }
+        
+        function drawArrow(x1, y1, x2, y2, color, width) {
+            const headlen = 15;
+            const angle = Math.atan2(y2 - y1, x2 - x1);
+            
+            const nodeRadius = 30;
+            const startX = x1 + nodeRadius * Math.cos(angle);
+            const startY = y1 + nodeRadius * Math.sin(angle);
+            const endX = x2 - nodeRadius * Math.cos(angle);
+            const endY = y2 - nodeRadius * Math.sin(angle);
+            
+            ctx.beginPath();
+            ctx.moveTo(startX, startY);
+            ctx.lineTo(endX, endY);
+            ctx.strokeStyle = color;
+            ctx.lineWidth = width;
+            ctx.stroke();
+            
+            ctx.beginPath();
+            ctx.moveTo(endX, endY);
+            ctx.lineTo(endX - headlen * Math.cos(angle - Math.PI / 6), 
+                       endY - headlen * Math.sin(angle - Math.PI / 6));
+            ctx.lineTo(endX - headlen * Math.cos(angle + Math.PI / 6), 
+                       endY - headlen * Math.sin(angle + Math.PI / 6));
+            ctx.lineTo(endX, endY);
+            ctx.fillStyle = color;
+            ctx.fill();
+        }
+        
+        function startAnimation() {
+            reset();
+            
+            if (animationInterval) {
+                clearInterval(animationInterval);
+            }
+            
+            animationInterval = setInterval(() => {
+                if (currentStep >= animationQueue.length) {
+                    clearInterval(animationInterval);
+                    animationInterval = null;
+                    return;
+                }
+                stepForward();
+            }, 1500);
+        }
+        
+        // Загрузка изображения
+        document.getElementById('imageInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const img = new Image();
+                    img.onload = function() {
+                        sourceImage = img;
+                        canvas.width = img.width;
+                        canvas.height = img.height;
+                        draw();
+                    };
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+        
+        // События мыши
+        canvas.addEventListener('click', (e) => {
+            if (dpMode) return;
+            
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            if (mode === 'node') {
+                addNode(x, y);
+            } else if (mode === 'edge') {
+                const node = getNodeAt(x, y);
+                if (node) {
+                    if (!selectedNode) {
+                        selectedNode = node;
+                    } else {
+                        if (selectedNode !== node) {
+                            const weight = prompt('Введите вес ребра:', '1');
+                            if (weight) {
+                                addEdge(selectedNode, node, parseInt(weight));
+                            }
+                        }
+                        selectedNode = null;
+                    }
+                    draw();
+                }
+            }
+        });
+        
+        function setMode(newMode) {
+            mode = newMode;
+            selectedNode = null;
+            document.querySelectorAll('.controls button').forEach(btn => {
+                btn.style.opacity = '0.6';
+            });
+            if (newMode === 'node') {
+                document.getElementById('nodeModeBtn').style.opacity = '1';
+            } else {
+                document.getElementById('edgeModeBtn').style.opacity = '1';
+            }
+            draw();
+        }
+        
+        function addNode(x, y) {
+            const label = String.fromCharCode(nextLetter++);
+            nodes.push({ label, x, y });
+            draw();
+        }
+        
+        function addEdge(from, to, weight) {
+            edges.push({ from, to, weight });
+            draw();
+        }
+        
+        function getNodeAt(x, y) {
+            return nodes.find(n => Math.hypot(n.x - x, n.y - y) < 20);
+        }
+        
+        function clearGraph() {
+            if (confirm('Очистить граф?')) {
+                nodes = [];
+                edges = [];
+                selectedNode = null;
+                nextLetter = 65;
+                dpMode = false;
+                draw();
+            }
+        }
+        
+        function buildDPGraph() {
+            if (nodes.length === 0) {
+                alert('Добавьте вершины!');
+                return;
+            }
+            
+            graph.nodes = nodes.map(n => ({
+                id: n.label,
+                x: n.x,
+                y: n.y
+            }));
+            
+            graph.edges = edges.map(e => ({
+                from: e.from.label,
+                to: e.to.label,
+                weight: e.weight
+            }));
+            
+            dpMode = true;
+            reset();
+            alert('Граф построен! Теперь можно запустить поиск кратчайшего пути.');
+        }
+        
+        // Инициализация
+        setMode('node');
+        draw();
+    </script>
+</body>
+</html>
