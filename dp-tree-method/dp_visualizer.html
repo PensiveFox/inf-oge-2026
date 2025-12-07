@@ -381,9 +381,12 @@
                     if (from && to) {
                         drawArrow(from.x, from.y, to.x, to.y, '#ddd', 2);
                         
-                        // Отображаем вес ребра (значение ДП исходной вершины)
+                        // Отображаем вес ребра ТОЛЬКО если исходная вершина уже обработана
+                        const fromIndex = graph.nodes.findIndex(n => n.id === from.id);
+                        const isFromCompleted = fromIndex <= currentStep;
+                        
                         const weight = dpValues[from.id];
-                        if (weight !== undefined) {
+                        if (weight !== undefined && isFromCompleted) {
                             const midX = (from.x + to.x) / 2;
                             const midY = (from.y + to.y) / 2;
                             
