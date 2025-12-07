@@ -349,11 +349,9 @@
                     ctx.drawImage(sourceImage, 0, 0);
                 }
                 
-                // Рисуем рёбра
+                // Рисуем рёбра (без весов в режиме редактирования)
                 edges.forEach(edge => {
                     drawArrow(edge.from.x, edge.from.y, edge.to.x, edge.to.y, '#667eea', 3);
-                    
-                    // Веса рёбер отображаются только в режиме ДП
                 });
                 
                 // Рисуем вершины
@@ -372,8 +370,7 @@
                     ctx.textAlign = 'center';
                     ctx.textBaseline = 'middle';
                     ctx.fillText(node.label, node.x, node.y);
-                    
-                    // Значение вершины показывается только в режиме ДП
+                    // Значения не показываются в режиме редактирования
                 });
             } else {
                 // Режим ДП-визуализации
@@ -536,13 +533,13 @@
         
         function addNode(x, y) {
             const label = String.fromCharCode(nextLetter++);
-            // Значение вершины будет вычислено в ДП (количество путей)
+            // Значения вершин будут вычислены при построении ДП-графа
             nodes.push({ label, x, y });
             draw();
         }
         
         function addEdge(from, to) {
-            // Вес ребра будет браться из ДП-таблицы (кол-во путей через from)
+            // Веса рёбер будут вычислены при построении ДП-графа
             edges.push({ from, to });
             draw();
         }
